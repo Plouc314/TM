@@ -20,7 +20,7 @@ class General:
     Contient toutes les variables
 
     Comme les actions dépendent des messages reçus, toutes les fonctions sont exécutées dans
-    la fonction get_messages. Pour être sûr que les variables sont dans le scope de la fonction
+    la fonction get_messages. Pour changer les variables de scope global dans la fonction
     get_messages, toutes les variables sont déclarées comme attribut de l'object General.
     '''
     def __init__(self):

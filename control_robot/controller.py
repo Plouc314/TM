@@ -12,10 +12,10 @@ class General:
     Contient toutes les variables
 
     Comme les actions dépendent des messages reçus, toutes les fonctions sont exécutées dans
-    la fonction on_message. Pour être sûr que les variables sont dans le scope de la fonction
+    la fonction on_message. Pour changer les variables de scope global dans la fonction
     on_message, toutes les variables sont déclarées comme attribut de l'object General.
-    La fonction give_order() l'est aussi parce que sela évite de devoir passé tout plein
-    d'attributs comme arguments de la fonction.
+    La fonction give_order() l'est aussi parce que sela évite de devoir passer tout plein
+    d'attributs comme argument de la fonction.
     '''
 
     msg = ''
@@ -63,3 +63,4 @@ client.on_message = on_message
 client.loop_forever()
 
 print('home disconnected')
+
