@@ -12,7 +12,7 @@ from .landmark import Landmark
 
 class Particle(object):
     """Represents the robot and particles"""
-    TOL = 1E-4
+    TOL = 1E-0
 
     def __init__(self, x, y, orien, scope=50,  is_robot=False):
         """pos_x: from left to right
@@ -120,6 +120,7 @@ class Particle(object):
                              [-dy/d2, dx/d2]])
         adj_cov = jacobian.dot(landmark.sig).dot(np.transpose(jacobian)) + self.obs_noise
         return predicted_obs, jacobian, adj_cov
+    
 
     def guess_landmark(self, obs):
         """Based on the particle position and observation, guess the location of the landmark. Origin at top left"""

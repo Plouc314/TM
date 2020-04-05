@@ -218,13 +218,13 @@ class Interface:
 
 if __name__ == '__main__':
     
-    robot = Robot((600,500),0,[Sensor(0), Sensor(-pi)])
+    robot = Robot((600,500),0,[Sensor(0), Sensor(2/3*pi), Sensor(-2/3*pi)])
     inter = Interface(robot)
 
     g = Generator(dim.window)
     g.load_data()
 
-    inter.set_plan(g.data[13].copy())
+    inter.set_plan(g.data[3].copy())
 
     from simul import ManualSimulation
 
@@ -233,3 +233,5 @@ if __name__ == '__main__':
     while inter.running:
         pressed = inter.run()
         simulation(pressed)
+
+    simulation.store()

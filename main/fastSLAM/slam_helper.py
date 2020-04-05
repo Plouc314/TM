@@ -3,6 +3,16 @@ import math
 import random
 from scipy import linalg
 
+from time import time
+
+def timer(func):
+    def inner(*args, **kwargs):
+        start = time()
+        result = func(*args, **kwargs)
+        print('{}: {:.2f}s'.format(func.__name__, time()-start))
+        return result
+    return inner
+
 WINDOWWIDTH, WINDOWHEIGHT = 1600, 1600
 
 def gauss_noise(mu, sig):
@@ -51,7 +61,6 @@ def normalize_weight(particles, particles_size):
 
     return particles
 
-
 def resampling(particles, particles_size):
     """
     low variance re-sampling
@@ -66,9 +75,10 @@ def resampling(particles, particles_size):
     pw = np.array(pw)
 
     Neff = 1.0 / (pw @ pw.T)  # Effective particle number
-    # print(Neff)
+    
 
-    if Neff < particles_size/1.5:  # resampling
+    #if Neff < particles_size/1.5:  # resampling
+    if random.random() < .1: # do it 10% of the time because of for some reasons(?) the other test is always False
         wcum = np.cumsum(pw)
         base = np.cumsum(pw * 0.0 + 1 / particles_size) - 1 / particles_size
         resampleid = base + np.random.rand(base.shape[0]) / particles_size
@@ -87,4 +97,7 @@ def resampling(particles, particles_size):
             #particles[i].yaw = tparticles[inds[i]].yaw
             particles[i].weight = 1.0 / particles_size
 
+    
     return particles
+
+

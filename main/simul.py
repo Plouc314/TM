@@ -3,7 +3,8 @@ from geometry import segment_intersect
 import random
 from copy import deepcopy
 from fastSLAM.fast_slam import FastSlam
-from fastSLAM.slam_helper import euclidean_distance, sense_direction
+from fastSLAM.slam_helper import euclidean_distance, sense_direction, timer
+import numpy as np
 
 BORDEAU = (228,50,50)
 
@@ -67,14 +68,23 @@ class BaseSimulation:
         return particles
 
     @staticmethod
-    def get_landmarks(fastslam):
-        landmarks = fastslam.get_predicted_landmarks()
+    def get_landmarks(fastslam,index, color):
+        landmarks = fastslam.get_predicted_landmarks(index)
         list_landmarks = []
         for lm in landmarks:
-            pos = lm.pos()
-            dp = Dp([10,10], pos)
+            dp = Dp([10,10], lm.pos(), color)
             list_landmarks.append(dp)
         return list_landmarks
+
+    @staticmethod
+    def store_landmarks(fastslam,path, n):
+        with open(path, 'w') as file:
+            file.write('x,y\n')
+            for i in range(n):
+                landmarks = fastslam.get_predicted_landmarks(i)
+                for lm in landmarks:
+                    file.write(f'{lm.pos()[0]},{lm.pos()[1]}\n')
+
         
 
 class ManualSimulation(BaseSimulation):
@@ -124,6 +134,7 @@ class ManualSimulation(BaseSimulation):
         noise = [ int(random.randint(0, scale) - scale/2) for i in range(shape)]
         return noise
 
+    @timer
     def localization(self):
         # compute displacement of the robot with the pos_history
         dis = euclidean_distance(self.history_state['pos'], self.robot.pos)
@@ -139,11 +150,12 @@ class ManualSimulation(BaseSimulation):
                 angle = sense_direction(self.robot.pos, col, 0.0)
                 obs.append([dis, angle])
 
+        obs = np.array(obs, dtype=np.float32)
         # execute fastslam
         self.fastslam(mov,obs)
 
         # get landmarks - update dps
-        self.landmarks = self.get_landmarks(self.fastslam)
+        self.landmarks = self.get_landmarks(self.fastslam,0, BORDEAU)
         
         self.particles = self.get_particles(self.fastslam)
 
@@ -166,6 +178,12 @@ class ManualSimulation(BaseSimulation):
             self.move_counter = 0
             self.mov_state = None
 
+        lm2 = self.get_landmarks(self.fastslam, 1, (50,50,100))
+        self.display_dps(self.screen, lm2)
+
         self.display_dps(self.screen, self.landmarks)
         self.display_dps(self.screen, self.particles)
+    
+    def store(self):
+        self.store_landmarks(self.fastslam, 'landmarks.csv', len(self.particles))
 

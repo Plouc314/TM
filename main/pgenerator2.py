@@ -163,19 +163,19 @@ class Generator:
             else:
                 self.frame += 2
 
-def generate_data(number, dim):
+def generate_data(number, dim, nwall, angle=pi/4):
     g = Generator(dim)
     data = []
     for _ in range(number):
-        plan = g(8)
+        plan = g(nwall)
         data.append(plan)
-        data.append(rotate(plan, pi/4))
+        data.append(rotate(plan, angle))
 
     with open('data_room.txt','w') as f:
         for room in data:
             f.write(str(room)+'\n')
 
 if __name__ == '__main__':
-    generate_data(100, (1600,1600))
+    generate_data(100, (1600,1600), 4, 0.5)
 
 

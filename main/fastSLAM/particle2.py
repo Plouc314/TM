@@ -7,7 +7,6 @@ from .slam_helper import *
 from .landmark import Landmark
 from .particle import Particle
 
-
 class Particle2(Particle):
     """Inherit from Particle. Incorporates latest obs in the proposal distribution"""
     def __init__(self, x, y, orien, is_robot=False):
@@ -15,14 +14,14 @@ class Particle2(Particle):
         self.control_noise = np.array([[0.2, 0, 0], [0, 0.2, 0], [0, 0, (3.0*math.pi/180)**2]])
         self.obs_noise = np.array([[0.1, 0], [0, (3.0*math.pi/180)**2]])
 
-    def update(self, obs):
+    def update(self, obs, q): ###
         """After the motion, update the weight of the particle and its EKFs based on the sensor data"""
         # Find data association first
         data_association = []
         for o in obs:
-            prob = np.exp(-70)
+            prob = 1e-30
             landmark_idx = -1
-            if self.landmarks:
+            if len(self.landmarks) != 0:
                 # find the data association with ML
                 prob, landmark_idx = self.pre_compute_data_association(o)
                 if prob < self.TOL:
@@ -35,11 +34,12 @@ class Particle2(Particle):
         initial_pose = np.array([[self.pos_x], [self.pos_y], [self.orientation]])
         pose_mean = initial_pose
         pose_cov = self.control_noise
+        inv_pos_cov = linalg.inv(pose_cov)
         for da in data_association:
             if da[1] > -1:
                 # Using EKF to update the robot pose
                 predicted_obs, featurn_jacobian, pose_jacobian, adj_cov = self.compute_jacobians(self.landmarks[da[1]])
-                pose_cov = linalg.inv( np.transpose(pose_jacobian).dot(linalg.inv(adj_cov).dot(pose_jacobian)) + linalg.inv(pose_cov) )
+                pose_cov = linalg.inv( np.transpose(pose_jacobian).dot(linalg.inv(adj_cov).dot(pose_jacobian)) + inv_pos_cov )
                 pose_mean = np.array([[self.pos_x], [self.pos_y], [self.orientation]]) + pose_cov.dot(np.transpose(pose_jacobian)).dot(linalg.inv(adj_cov)).dot(np.transpose(np.array([da[0]])) - predicted_obs)
                 new_pose = np.random.multivariate_normal(pose_mean[:,0], pose_cov)
                 self.set_pos(*new_pose)
@@ -58,6 +58,8 @@ class Particle2(Particle):
         prior = multi_normal(np.array([[self.pos_x], [self.pos_y], [self.orientation]]), initial_pose, self.control_noise)
         prop = multi_normal(np.array([[self.pos_x], [self.pos_y], [self.orientation]]), pose_mean, pose_cov)
         self.weight = self.weight * prior / prop
+
+        q.put([self]) ###
 
     def compute_jacobians(self, landmark):
         dx = landmark.pos_x - self.pos_x
@@ -80,10 +82,11 @@ class Particle2(Particle):
         ass_jacobian = np.zeros((2,2))
         ass_adjcov = np.zeros((2,2))
         landmark_idx = -1
+        inv_control_noise = linalg.inv(self.control_noise)
         for idx, landmark in enumerate(self.landmarks):
             # Sample a new particle pose from the proposal distribution
             predicted_obs, featurn_jacobian, pose_jacobian, adj_cov = self.compute_jacobians(landmark)
-            pose_cov = linalg.inv( np.transpose(pose_jacobian).dot(linalg.inv(adj_cov).dot(pose_jacobian)) + linalg.inv(self.control_noise) )
+            pose_cov = linalg.inv( np.transpose(pose_jacobian).dot(linalg.inv(adj_cov).dot(pose_jacobian)) + inv_control_noise )
             pose_mean = np.array([[self.pos_x], [self.pos_y], [self.orientation]]) + pose_cov.dot(np.transpose(pose_jacobian)).dot(linalg.inv(adj_cov)).dot(np.transpose(np.array([obs])) - predicted_obs)
             new_pose = np.random.multivariate_normal(pose_mean[:,0], pose_cov)
 
