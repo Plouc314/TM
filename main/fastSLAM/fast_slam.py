@@ -9,9 +9,10 @@ from .particle2 import Particle2
 
 class FastSlam(object):
     """Main class that implements the FastSLAM2.0 algorithm"""
-    def __init__(self, x, y, orien, particle_size = 50):
+    def __init__(self, x, y, orien, reduce_lms=True, particle_size = 50):
         self.particles = [Particle2(x, y, orien + .5*(random.random()-.5)) for i in range(particle_size)]
         self.robot = Particle2(x, y, orien, is_robot=True)
+        self.reduce_lms = reduce_lms
         self.particle_size = particle_size
         self.clean_counter = 0
 
@@ -20,7 +21,7 @@ class FastSlam(object):
         for p in self.particles:
             original_lm = deepcopy(p.landmarks)
             p.landmarks = original_lm[:-10]
-            last_ones = list(np.random.choice(original_lm[-10:],7))
+            last_ones = list(np.random.choice(original_lm[-10:],8))
             p.landmarks.extend(last_ones)
 
 
@@ -62,11 +63,12 @@ class FastSlam(object):
         self.particles = resampling(self.particles, self.particle_size)
        
         # try clean landmarks
-        self.clean_counter += 1
-        if self.clean_counter == 4:
-            if len(self.particles[0].landmarks) > 10:
-                self.clean_lms()
-            self.clean_counter = 0
+        if self.reduce_lms:
+            self.clean_counter += 1
+            if self.clean_counter == 4:
+                if len(self.particles[0].landmarks) > 10:
+                    self.clean_lms()
+                self.clean_counter = 0
             
 
 

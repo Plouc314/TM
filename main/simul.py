@@ -5,15 +5,9 @@ from copy import deepcopy
 from fastSLAM.fast_slam import FastSlam
 from fastSLAM.slam_helper import euclidean_distance, sense_direction, timer
 import numpy as np
+from interface import Dp, Sensor
 
 BORDEAU = (228,50,50)
-
-class Dp(pygame.sprite.Sprite):
-    def __init__(self,dim, pos, color=BORDEAU):
-        super(Dp, self).__init__()
-        self.surf = pygame.Surface(dim)
-        self.surf.fill(color)
-        self.pos = pos
 
 class BaseSimulation:
     landmarks, particles = [], []
@@ -33,11 +27,14 @@ class BaseSimulation:
         for i in range(len(data_points) - 1):
             self.lines_p.append([data_points[i], data_points[i+1]])
 
-    def collision(self):
+    def collision(self, sensors):
         cols = []
         for line in self.lines_p:
-            for sensor in self.robot.sensors:
-                line_1 = [self.robot.pos, sensor.dp_scope]
+            for sensor in sensors:
+                # update sensor position
+                dp_scope = sensor.dp_scope(self.robot.pos_x, self.robot.pos_y, self.robot.alpha)
+
+                line_1 = [self.robot.pos, dp_scope]
                 # test for vertical lines
                 try:
                     intersect = segment_intersect(line, line_1)
@@ -58,7 +55,7 @@ class BaseSimulation:
     @staticmethod
     def display_dps(screen, dps):
         for dp in dps:
-            screen.blit(dp.surf, dp.pos)
+            screen.blit(dp.surf, (int(dp.pos[0]), int(dp.pos[1])))
     
     @staticmethod
     def get_particles(fastslam):
@@ -68,7 +65,7 @@ class BaseSimulation:
         return particles
 
     @staticmethod
-    def get_landmarks(fastslam,index, color):
+    def get_landmarks(fastslam, index=0, color=BORDEAU):
         landmarks = fastslam.get_predicted_landmarks(index)
         list_landmarks = []
         for lm in landmarks:
@@ -94,38 +91,48 @@ class ManualSimulation(BaseSimulation):
     def __init__(self, screen, dim_screen, plan, robot):
         super().__init__(screen, dim_screen, plan, robot)
         self.sample_robot = deepcopy(robot)
+        # get rid of the sensor to don't display them
+        self.sample_robot.sensors = []
         self.sample_robot.img = pygame.transform.scale(self.sample_robot.img, (dim_screen[0]//40, dim_screen[0]//40))
         
         # store position and angle of before deplacement
         self.history_state = {'pos':self.robot.pos.copy(), 'angle':self.robot.alpha}
+
+        # create sensors that represent the totating sensor
+        angles = list(np.linspace(-1/3*np.pi, 1/3*np.pi, 20))
+        self.sensors = [Sensor(angle) for angle in angles]
     
     def react_events(self, pressed):
         if pressed[pygame.K_w] or pressed[pygame.K_s]:
-            if self.mov_state == False: # was turning, so update localization
+            if self.mov_state == False: # was turning
                 self.localization()
                 self.history_state['pos'] = self.robot.pos.copy() # store position of the robot
                 self.history_state['angle']= self.robot.alpha
-                self.move_counter = 0 # reset counter
+
             self.mov_state = True
-            self.move_counter += 1
+
             if pressed[pygame.K_w]:
                 self.robot.move(10)
             elif pressed[pygame.K_s]:
                 self.robot.move(-10)
 
         if pressed[pygame.K_a] or pressed[pygame.K_d]:
-            if self.mov_state == True: # was moving, so update localization
+            if self.mov_state == True: # was moving
                 self.localization()
                 self.history_state['pos'] = self.robot.pos.copy() # store position of the robot
                 self.history_state['angle']= self.robot.alpha
-                self.move_counter = 0 # reset counter
+
             self.mov_state = False
-            self.move_counter += 0.5
+
             if pressed[pygame.K_a]:
                 self.robot.alpha -= 0.1
             elif pressed[pygame.K_d]:
                 self.robot.alpha += 0.1
         
+        if pressed[pygame.K_m]:
+            self.localization()
+            self.history_state['pos'] = self.robot.pos.copy() # store position of the robot
+            self.history_state['angle']= self.robot.alpha
 
     @staticmethod
     def get_noise(scale, shape):
@@ -141,7 +148,7 @@ class ManualSimulation(BaseSimulation):
         angle = self.robot.alpha - self.history_state['angle']
         mov = [dis, angle]
 
-        cols = self.collision()
+        cols = self.collision(self.sensors)
         obs = []
         for col in cols:
             if col:
@@ -150,12 +157,13 @@ class ManualSimulation(BaseSimulation):
                 angle = sense_direction(self.robot.pos, col, 0.0)
                 obs.append([dis, angle])
 
-        obs = np.array(obs, dtype=np.float32)
+        obs = np.array(obs)
+        print(obs)
         # execute fastslam
         self.fastslam(mov,obs)
 
         # get landmarks - update dps
-        self.landmarks = self.get_landmarks(self.fastslam,0, BORDEAU)
+        self.landmarks = self.get_landmarks(self.fastslam)
         
         self.particles = self.get_particles(self.fastslam)
 
@@ -166,17 +174,8 @@ class ManualSimulation(BaseSimulation):
         self.robot.display(self.screen)
 
         # update sample robot position
-        self.sample_robot.pos_x, self.sample_robot.pos_y = self.fastslam.get_mean_pos()
-        # display robot surface
-        self.screen.blit(self.sample_robot.img, self.sample_robot.pos)
+        self.sample_robot.pos = self.fastslam.get_mean_pos()
 
-        # localization - check once every 10 moves
-        if self.move_counter == 5:
-            self.localization()
-            self.history_state['pos'] = self.robot.pos.copy() # store position of the robot
-            self.history_state['angle']= self.robot.alpha
-            self.move_counter = 0
-            self.mov_state = None
 
         lm2 = self.get_landmarks(self.fastslam, 1, (50,50,100))
         self.display_dps(self.screen, lm2)

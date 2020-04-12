@@ -176,6 +176,6 @@ def generate_data(number, dim, nwall, angle=pi/4):
             f.write(str(room)+'\n')
 
 if __name__ == '__main__':
-    generate_data(100, (1600,1600), 4, 0.5)
+    generate_data(100, (1600,1600), 8, 0.5)
 
 

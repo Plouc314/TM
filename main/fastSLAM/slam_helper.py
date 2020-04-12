@@ -78,7 +78,7 @@ def resampling(particles, particles_size):
     
 
     #if Neff < particles_size/1.5:  # resampling
-    if random.random() < .1: # do it 10% of the time because of for some reasons(?) the other test is always False
+    if random.random() < .3: # do it 10% of the time because of for some reasons(?) the other test is always False
         wcum = np.cumsum(pw)
         base = np.cumsum(pw * 0.0 + 1 / particles_size) - 1 / particles_size
         resampleid = base + np.random.rand(base.shape[0]) / particles_size
