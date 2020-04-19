@@ -5,7 +5,7 @@ from copy import deepcopy
 from fastSLAM.fast_slam import FastSlam
 from fastSLAM.slam_helper import euclidean_distance, sense_direction, timer
 import numpy as np
-from interface import Dp, Sensor
+from interface import Dp, Sensor, Delayed, dim
 
 BORDEAU = (228,50,50)
 
@@ -47,11 +47,18 @@ class BaseSimulation:
                     if intersect != None:
                         intersect = intersect[::-1]
                 if intersect != None:
-                    noise = [0,0]#self.get_noise(20, 2)
+                    noise = self.get_noise(10, 2)
                     intersect = [ c + noise[i] for i, c in enumerate(intersect)]
                     cols.append(intersect)
         return cols
-    
+
+    @staticmethod
+    def get_noise(scale, shape):
+        random.seed(random.randint(0,100))
+        # create noise of desired shape
+        noise = [ int(random.randint(0, scale) - scale/2) for i in range(shape)]
+        return noise
+
     @staticmethod
     def display_dps(screen, dps):
         for dp in dps:
@@ -83,6 +90,7 @@ class BaseSimulation:
                     file.write(f'{lm.pos()[0]},{lm.pos()[1]}\n')
 
         
+localization_deco = Delayed(15)
 
 class ManualSimulation(BaseSimulation):
     # for fastSlam
@@ -99,9 +107,18 @@ class ManualSimulation(BaseSimulation):
         self.history_state = {'pos':self.robot.pos.copy(), 'angle':self.robot.alpha}
 
         # create sensors that represent the totating sensor
-        angles = list(np.linspace(-1/3*np.pi, 1/3*np.pi, 20))
+        angles = list(np.linspace(dim.sensor_angles[0], dim.sensor_angles[1], 20))
         self.sensors = [Sensor(angle) for angle in angles]
     
+    @localization_deco
+    def localization_event(self, pressed):
+        if pressed[pygame.K_m]:
+            self.localization()
+            self.history_state['pos'] = self.robot.pos.copy() # store position of the robot
+            self.history_state['angle']= self.robot.alpha
+            return True
+        return False
+
     def react_events(self, pressed):
         if pressed[pygame.K_w] or pressed[pygame.K_s]:
             if self.mov_state == False: # was turning
@@ -129,17 +146,7 @@ class ManualSimulation(BaseSimulation):
             elif pressed[pygame.K_d]:
                 self.robot.alpha += 0.1
         
-        if pressed[pygame.K_m]:
-            self.localization()
-            self.history_state['pos'] = self.robot.pos.copy() # store position of the robot
-            self.history_state['angle']= self.robot.alpha
-
-    @staticmethod
-    def get_noise(scale, shape):
-        random.seed(random.randint(0,100))
-        # create noise of desired shape
-        noise = [ int(random.randint(0, scale) - scale/2) for i in range(shape)]
-        return noise
+        self.localization_event(pressed)
 
     @timer
     def localization(self):
@@ -158,7 +165,7 @@ class ManualSimulation(BaseSimulation):
                 obs.append([dis, angle])
 
         obs = np.array(obs)
-        print(obs)
+        
         # execute fastslam
         self.fastslam(mov,obs)
 

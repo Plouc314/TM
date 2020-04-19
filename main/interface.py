@@ -11,9 +11,10 @@ class Dimension:
     plan, original = None, None
     dp_middle = [0,0]
     scale_factor = 1.
-    fastslam = None
     def __init__(self,x,y):
         self.window = (x,y)
+        # specification for fastslam and simul
+        self.sensor_angles = [-1/3*pi, 1/3*pi]
         self.sensor_scope = y // 4
         self.sensor_marge = y // 40
         self.sensor_width = y // 320
@@ -21,8 +22,8 @@ class Dimension:
         self.robot = [y // 20, y // 20]
         self.unit = y//16
 
-        # list of all the objects that can be rescaled
-        self.objects = []
+        # list of the robot(s)
+        self.robots = []
     
     def set_plan(self, plan):
         self.plan = plan
@@ -31,25 +32,21 @@ class Dimension:
     def change_scale(self, coef):
         self.scale_factor *= coef
 
-        self.sensor_scope = self.sensor_scope * coef
-        self.sensor_marge = self.sensor_marge * coef
-        self.sensor_width = self.sensor_width * coef
         self.wall = self.wall * coef
         self.robot[0] = self.robot[0] * coef
         self.robot[1] = self.robot[1] * coef
         self.unit = self.unit * coef
 
+        Sensor.scope = int(self.sensor_scope * coef)
+        Sensor.MARGE = int(self.sensor_marge * coef)
+        Sensor.WIDTH = int(self.sensor_width * coef)
+
+
         # base of all the new values
         self.dp_middle = middle(self.plan)
-        for obj in self.objects:
-            obj.change_scale(coef)
-        #for p in self.fastslam.particles:
-        #    for lm in p.landmarks:
-        #        x,y = lm.pos()
-        #        newx, newy = coef * x, coef * y
-        #        newx += dp_middle[0] * (1-coef)
-        #        newy += dp_middle[1] * (1-coef)
-        #        lm.pos_x, lm.pos_y = newx, newy
+        for robot in self.robots:
+            robot.change_scale(coef)
+        
         self.scale_plan(coef)
 
     def scale_plan(self,coef):
@@ -73,6 +70,12 @@ BORDEAU = (228,50,50)
 YELLOW = (255,255,100)
 
 class Delayed:
+    '''
+    Creates decorators,
+
+    The decorated function should return True/False depending on whether or not it has been activated,
+    if true, creates a delay in order to be spammed.
+    '''
     wait = 0
     delayed = False
     def __init__(self, delay):
@@ -110,6 +113,15 @@ class Dp(pygame.sprite.Sprite):
         self.pos[1] = self.pos[1] * factor + middle[1] * (1 - factor)
 
 class Robot:
+    '''
+    Robot that is display on the screen
+
+    Attributes:
+        pos_x
+        pos_y
+        alpha: orientation of the robot
+        sensors: sensor objects
+    '''
     # load the image of the robot
     img = pygame.image.load('robotic.png')
     img = pygame.transform.scale(img, dim.robot)
@@ -121,7 +133,7 @@ class Robot:
         self.sensors = sensors
 
         # add the new object to the list of scalable objects
-        dim.objects.append(self)
+        dim.robots.append(self)
 
     @property
     def pos(self):
@@ -154,20 +166,17 @@ class Robot:
         self.img = pygame.transform.scale(self.img, [int(dim.robot[0]), int(dim.robot[1])])
 
 
-
 class Sensor:
     detect = False
+    scope = dim.sensor_scope
+    MARGE = dim.sensor_marge
+    WIDTH = dim.sensor_width
     # deviation: l'angle par rapport à l'avant du robot
     def __init__(self, deviation):
-        self.scope = dim.sensor_scope
         self.deviation = deviation
-        self.MARGE = dim.sensor_marge
-        self.WIDTH = dim.sensor_width
-
-        # add the new object to the list of scalable objects
-        dim.objects.append(self)
 
     def orientation(self, pos_x, pos_y, alpha):
+        ''' Display the line that represents the sensor '''
         x,y = self.dp_scope(pos_x, pos_y, alpha)
         pygame.draw.line(screen, LIGHT_BROWN, (pos_x + self.MARGE, pos_y + self.MARGE), (x,y), self.WIDTH)
     
@@ -176,11 +185,6 @@ class Sensor:
         y = sin(alpha + self.deviation)*self.scope + pos_y + self.MARGE
         return [x,y]
 
-    def change_scale(self, coef):
-        self.scope = int(dim.sensor_scope)
-        self.MARGE = int(dim.sensor_marge)
-        self.WIDTH = int(dim.sensor_width)
-
     def __str__(self):
         return f'Sensor: angle {self.deviation}'
 
@@ -188,11 +192,11 @@ class Interface:
     '''
     Base of the interface
 
-    Update the screen,
-    Manage the dimension,unit/dim.scale
-    Basic event reaction,
-    Can keep track of the movements,
-    In simulation, display the plan
+    Update the screen,\n
+    Manage the dimension,\n
+    Basic event reaction,\n
+    Can keep track of the movements,\n
+    In simulation, display the plan\n
     '''
     # list of all the object that can be rescaled
     objects = []
@@ -335,11 +339,16 @@ class Interface:
         return pressed
                     
 
-    
+from fastSLAM.particle2 import Particle2
+
+# set sensor specifications
+Particle2.sensor_scope = dim.sensor_scope
+Particle2.sensor_angles = dim.sensor_angles
+
 
 if __name__ == '__main__':
     
-    robot = Robot((600,500),0,[Sensor(0), Sensor(1/3*pi), Sensor(-1/3*pi)])
+    robot = Robot((600,500),0,[Sensor(0), Sensor(dim.sensor_angles[0]), Sensor(dim.sensor_angles[1])])
     inter = Interface()
 
     g = Generator(dim.window)
@@ -350,10 +359,10 @@ if __name__ == '__main__':
     from simul import ManualSimulation
 
     simulation = ManualSimulation(screen, dim.window, inter.dim.plan, robot)
+    simulation.fastslam.reduce_lms = False
 
     inter.set_robot(simulation.sample_robot)
     inter.keep_track_mov(YELLOW, auto=True)
-    inter.dim.fastslam = simulation.fastslam
 
     while inter.running:
         pressed = inter.run()

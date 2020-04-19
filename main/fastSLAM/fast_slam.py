@@ -7,7 +7,7 @@ from copy import deepcopy
 from .slam_helper import resampling, timer
 from .particle2 import Particle2
 
-class FastSlam(object):
+class FastSlam:
     """Main class that implements the FastSLAM2.0 algorithm"""
     def __init__(self, x, y, orien, reduce_lms=True, particle_size = 50):
         self.particles = [Particle2(x, y, orien + .5*(random.random()-.5)) for i in range(particle_size)]
@@ -21,9 +21,8 @@ class FastSlam(object):
         for p in self.particles:
             original_lm = deepcopy(p.landmarks)
             p.landmarks = original_lm[:-10]
-            last_ones = list(np.random.choice(original_lm[-10:],8))
+            last_ones = list(np.random.choice(original_lm[-10:],5))
             p.landmarks.extend(last_ones)
-
 
     @timer
     def update_p(self, obs):
@@ -70,9 +69,6 @@ class FastSlam(object):
                     self.clean_lms()
                 self.clean_counter = 0
             
-
-
-        
         
     def get_mean_pos(self):
         ' return the mean position of the particles'

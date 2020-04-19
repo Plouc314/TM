@@ -44,6 +44,7 @@ def sense_direction(robot_pos, landmark, noise):
         result = direction + angle_noise
     return result
 
+#####
 # imported from https://pythonrobotics.readthedocs.io/en/latest/modules/slam.html
 
 def normalize_weight(particles, particles_size):
@@ -78,7 +79,7 @@ def resampling(particles, particles_size):
     
 
     #if Neff < particles_size/1.5:  # resampling
-    if random.random() < .3: # do it 10% of the time because of for some reasons(?) the other test is always False
+    if random.random() < .3: # do it 30% of the time because of for some reasons(?) the other test is always False
         wcum = np.cumsum(pw)
         base = np.cumsum(pw * 0.0 + 1 / particles_size) - 1 / particles_size
         resampleid = base + np.random.rand(base.shape[0]) / particles_size
@@ -100,4 +101,42 @@ def resampling(particles, particles_size):
     
     return particles
 
+def pi_2_pi(angle):
+    return (angle + math.pi) % (2 * math.pi) - math.pi
 
+#####
+
+# use to have an idea of functions performance and spot bottleneck
+class Counter:
+    funcs = {'names':[], 'iterations':[],'time':[]}
+    def __call__(self,func):
+        self.funcs['names'].append(func.__name__)
+        self.funcs['iterations'].append(0)
+        self.funcs['time'].append(0)
+        index = len(self.funcs['names'])-1
+        
+        def inner(*args, **kwargs):
+            self.funcs['iterations'][index] += 1
+            st = time()
+            r = func(*args, **kwargs)
+            self.funcs['time'][index] += time() - st
+            return r
+        
+        return inner
+    
+    def result(self):
+        print('Result:')
+        for i in range(len(self.funcs['names'])):
+            name = self.funcs['names'][i]
+            iteration = self.funcs['iterations'][i]
+            time = self.funcs['time'][i]
+            try:
+                performance = time/iteration
+            except:
+                performance = 0
+            
+            print(f'{name}: {iteration} mean: {performance:.4f} total:{time:.3f}')
+    
+    def reset(self):
+        self.funcs['time'] = [0 for _ in self.funcs['names']]
+        self.funcs['iterations'] = [0 for _ in self.funcs['names']]

@@ -12,7 +12,7 @@ from .landmark import Landmark
 
 class Particle(object):
     """Represents the robot and particles"""
-    TOL = 1E-8
+    TOL = 1E-10
 
     def __init__(self, x, y, orien, scope=50,  is_robot=False):
         """pos_x: from left to right
@@ -36,7 +36,7 @@ class Particle(object):
             self.bearing_noise = 0.1
             self.distance_noise = 0.1
             self.motion_noise = 0.5
-            self.turning_noise = 0.3
+            self.turning_noise = 1
         else:
             self.bearing_noise = 0
             self.distance_noise = 0
