@@ -32,7 +32,7 @@ def rotate(dps, angle):
     return new_dps
 
 
-# imported - https://www.codeproject.com/Tips/864704/Python-Line-Intersection-for-Pygame
+### imported - https://www.codeproject.com/Tips/864704/Python-Line-Intersection-for-Pygame
 
 def slope(p1, p2) :
    return (p2[1] - p1[1]) * 1. / (p2[0] - p1[0])
@@ -74,3 +74,22 @@ def segment_intersect(line1, line2) :
 
    return intersection_pt
 
+###
+
+def is_between_lines(line1, line2, dp):
+    '''lines: [[x1, y1], [x2, y2]]'''
+    intersect_dp = intersect(line1, line2)
+
+    dp_angle = slope(intersect_dp, dp)
+    print('dp slope:',dp_angle)
+
+    slope1 = slope(line1[0], line1[1])
+    
+    slope2 = slope(line2[0], line2[1])
+
+    print('slopes:',slope1, slope2)
+
+    return slope1 <= dp[1] < slope2
+
+def pi_2_pi(angle):
+    return (angle + pi) % (2 * pi) - pi
