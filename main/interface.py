@@ -2,8 +2,8 @@ import pygame
 import os, sys
 from math import sin, cos, pi
 from geometry import pi_2_pi
-from lib.interface import Interface as BaseInterface, Form, TextBox, Font, C as BaseC, Delayer
-
+from lib.interface import Interface as BaseInterface, Form, TextBox, Font, C as BaseC, Delayer, Cadre
+from specifications import Specifications as Spec
         
 class C(BaseC): # get more colors
     BROWN = (99, 39, 0)
@@ -21,16 +21,12 @@ change_scale_deco = Delayer(15)
 class ConstClass:
     dim = None
     values = {
-        'WINDOW': (1600,1600),
-        'VIEW_ANGLE': 1/2*pi,
+        'TOTAL_WINDOW': (2400, 1600),
         'WALL': 10,
         'UNIT': 100,
         'DP': (10,10),
         'ROBOT': (100,100),
-        'SENSOR_SCOPE': 400,
-        'SENSOR_MARGE': 50,
         'SMALL_WIDTH': 5,
-        'SENSOR_ANGLES': (-1/4*pi, 1/4*pi)
     }
 
     def __getitem__(self, key):
@@ -44,8 +40,45 @@ Const = ConstClass()
 from fastSLAM.particle2 import Particle2
 
 # set sensor specifications
-Particle2.sensor_scope = Const['SENSOR_SCOPE']
-Particle2.sensor_angles = Const['SENSOR_ANGLES']
+Particle2.sensor_scope = Spec.SENSOR_SCOPE
+Particle2.sensor_angles = Spec.SENSOR_ANGLES
+
+class InfoBoard:
+    def __init__(self):
+        self.cadre = Cadre((800, 1600), (1600,0), C.LIGHT_BROWN)
+        self.text_inputs = TextBox((400, 100), (1800,100), C.LIGHT_BROWN,"Inputs:",font=Font.f(75))
+        self.text_directions = TextBox((250, 80), (1700,300), C.LIGHT_BROWN,"Directions",font=Font.f(30))
+        self.text_history = TextBox((250, 80), (2050,300), C.LIGHT_BROWN,"History",font=Font.f(30))
+        self.text_n_order = TextBox((400, 50), (1700,700), C.LIGHT_BROWN,"Orders:",font=Font.f(30), centered=False)
+        self.text_max_obs = TextBox((400, 50), (1700,750), C.LIGHT_BROWN,"Max Observations:",font=Font.f(30), centered=False)
+        self.text_fitness = TextBox((400, 50), (1700,800), C.LIGHT_BROWN,"Fitness:",font=Font.f(30), centered=False)
+        self.text_running = TextBox((400, 50), (1700,850), C.LIGHT_BROWN,"Running state:",font=Font.f(30), centered=False)
+        self.directions = Form((250, 250), (1700, 400))
+        self.hist_pos = Form((250, 250), (2050, 400))
+    
+    def set_n_order(self, n):
+        self.text_n_order.set_text(f"Orders: {n}")
+    
+    def set_max_obs(self, n):
+        self.text_max_obs.set_text(f"Max Observations: {n}")
+
+    def set_fitness(self, n):
+        self.text_fitness.set_text(f'Fitness: {n:.1f}')
+    
+    def set_running(self, value):
+        self.text_running.set_text(f'Running state: {value}')
+
+    def display(self):
+        self.cadre.display()
+        self.text_inputs.display()
+        self.text_directions.display()
+        self.text_history.display()
+        self.text_n_order.display()
+        self.text_max_obs.display()
+        self.text_fitness.display()
+        self.text_running.display()
+        self.hist_pos.display()
+        self.directions.display()
 
 class Interface(BaseInterface):
     '''
@@ -81,9 +114,10 @@ class Interface(BaseInterface):
 
     @classmethod
     def setup(cls, dimension, title, FPS=30, font_color=C.WHITE):
-        super().setup(dimension, title, FPS=FPS, font_color=font_color)
+        super().setup(Const['TOTAL_WINDOW'], title, FPS=FPS, font_color=font_color)
         Const.dim = cls.dim
         cls.text_scalebar = TextBox((Const['UNIT'], 40), cls.scalebar_pos, text='1', color=C.BROWN, text_color=C.WHITE, font=Font.f(30))
+        cls.info_board = InfoBoard()
 
     @classmethod
     def set_robot(cls, robot):
@@ -114,7 +148,7 @@ class Interface(BaseInterface):
                 start = cls.dim.scale(start)
                 end = cls.dim.scale(end)
                 pygame.draw.line(cls.screen, C.WALL_BROWN, start, end, Const['wall'])
-    
+
     @classmethod
     def set_plan(cls, plan):
         cls.plan = plan
@@ -127,7 +161,7 @@ class Interface(BaseInterface):
         return [ [dps[i], dps[i+1]] for i in range(len(dps)-1) ]
 
     @classmethod
-    def add_dps(cls, dps, color, is_permanent=False, scale=True):
+    def add_dps(cls, dps, color, is_permanent=True, scale=True):
         '''
         Datapoints added to Interface are displayed  
         By default the dps are diplayed once, if is_permanent=True: displayed each time
@@ -214,6 +248,7 @@ class Interface(BaseInterface):
             cls.robot.display() 
         
         cls.display_scalebar()
+        cls.info_board.display()
 
         cls.react_events(pressed)
 
@@ -238,7 +273,7 @@ class Robot(Form):
     
     def __init__(self, pos, orientation, display_border=True):
         
-        super().__init__(Const['ROBOT'], pos, surface=img_robot)
+        super().__init__(Const['ROBOT'], pos, surface=img_robot, center=True)
         
         self.orien = orientation
         self.display_border = display_border
@@ -246,15 +281,19 @@ class Robot(Form):
     def display(self):
         if self.display_border:
             # display orientation lines
-            start = [self.pos[0] + Const['sensor_marge'], self.pos[1] + Const['sensor_marge']]
+            start = self.center
 
-            x = cos(self.orien + Const['SENSOR_ANGLES'][0]) * Const['sensor_scope'] + self.pos[0] + Const['sensor_marge']
-            y = sin(self.orien + Const['SENSOR_ANGLES'][0]) * Const['sensor_scope'] + self.pos[1] + Const['sensor_marge']
+            x = cos(self.orien + Spec.SENSOR_ANGLES[0]) * Spec.SENSOR_SCOPE + self.x
+            y = sin(self.orien + Spec.SENSOR_ANGLES[0]) * Spec.SENSOR_SCOPE + self.y
+
+            x,y = Interface.dim.scale((x,y))
 
             pygame.draw.line(Interface.screen, C.LIGHT_BROWN, start, (x,y), Const['small_width'])
 
-            x = cos(self.orien + Const['SENSOR_ANGLES'][1]) * Const['sensor_scope'] + self.pos[0] + Const['sensor_marge']
-            y = sin(self.orien + Const['SENSOR_ANGLES'][1]) * Const['sensor_scope'] + self.pos[1] + Const['sensor_marge']
+            x = cos(self.orien + Spec.SENSOR_ANGLES[1]) * Spec.SENSOR_SCOPE + self.x
+            y = sin(self.orien + Spec.SENSOR_ANGLES[1]) * Spec.SENSOR_SCOPE + self.y
+
+            x,y = Interface.dim.scale((x,y))
 
             pygame.draw.line(Interface.screen, C.LIGHT_BROWN, start, (x,y), Const['small_width'])
 

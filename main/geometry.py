@@ -1,4 +1,5 @@
 from math import sin, cos, sqrt, atan2, pi
+import numpy as np
 
 def get_polar(pos):
     r = sqrt(pos[0]**2 + pos[1]**2)
@@ -32,7 +33,8 @@ def rotate(dps, angle):
     return new_dps
 
 
-### imported - https://www.codeproject.com/Tips/864704/Python-Line-Intersection-for-Pygame
+##### 
+# imported - https://www.codeproject.com/Tips/864704/Python-Line-Intersection-for-Pygame
 
 def slope(p1, p2) :
    return (p2[1] - p1[1]) * 1. / (p2[0] - p1[0])
@@ -74,7 +76,7 @@ def segment_intersect(line1, line2) :
 
    return intersection_pt
 
-###
+#####
 
 def is_between_lines(line1, line2, dp):
     '''lines: [[x1, y1], [x2, y2]]'''
@@ -91,5 +93,34 @@ def is_between_lines(line1, line2, dp):
 
     return slope1 <= dp[1] < slope2
 
+# imported from https://pythonrobotics.readthedocs.io/en/latest/modules/slam.html
 def pi_2_pi(angle):
     return (angle + pi) % (2 * pi) - pi
+
+#####
+# inspired from https://stackoverflow.com/questions/17136084/checking-if-a-point-is-inside-a-rotated-rectangle
+
+def det(a, b):
+    return a[0] * b[1] - a[1] * b[0]
+
+def area(a, b, c):
+    v1 = b - a
+    v2 = b - c
+    return abs(det(v1, v2))
+
+def center(a, c):
+    return (a + c) / 2
+
+def get_d(a, b, c):
+    return 2*center(a,c) - b
+
+def is_in_rect(a, b, c, p):
+    a = np.array(a, dtype='int32')
+    b = np.array(b, dtype='int32') 
+    c = np.array(c, dtype='int32') 
+    p = np.array(p, dtype='int32')
+    d = get_d(a, b, c)
+    sum_triangle = ( area(a, p, d) + area(d, p, c) + area(c, p, b) + area(p, b, a) ) / 2
+    return sum_triangle <= area(a, b, c)
+
+#####

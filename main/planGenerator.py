@@ -1,5 +1,6 @@
-from random import randint
-from geometry import rotate
+from random import randint, random
+import numpy as np
+from geometry import rotate, area as get_area
 from math import pi
 import pickle
 
@@ -152,18 +153,40 @@ class Generator:
             else:
                 self.frame += 2
 
-def generate_data(number, dim, nwall, angle=pi/4):
+def generate_data(number, dim, nwall):
+    '''Generate n plans in a given dimension, each plan is rotated of a random angle'''
     g = Generator(dim)
     data = []
     for _ in range(number):
         plan = g(nwall)
-        data.append(plan)
+        angle = 2*pi * random()
         data.append(rotate(plan, angle))
 
     with open(PATH,'wb') as file:
         pickle.dump(data, file)
 
+def get_mean_area(plans, scale_factor=200):
+    '''Return the mean area of the given plans'''
+
+    plans = np.array(plans)
+    plans = plans / scale_factor
+    areas = np.zeros((plans.shape[0]))
+
+    for i in range(plans.shape[0]):
+        area = get_area(plans[i,0], plans[i,1], plans[i,2])
+        areas[i] = area
+    
+    return np.mean(areas)
+
 if __name__ == '__main__':
-    generate_data(200, (1600,1600), 8, 0.5)
+    generate_data(200, (1600,1600), 4)
+
+    g = Generator((1600,1600))
+
+    g.load_data()
+
+    print(f'meters: {get_mean_area(g.data):.1f}, pixels: {get_mean_area(g.data, 1):.0f}')
+
+    
 
 
