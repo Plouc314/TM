@@ -32,9 +32,7 @@ class Model:
     
     # will be set in base.py
     config = None
-    max_orders = None
 
-    d_diag = math.sqrt(2) / 2
     def __init__(self, ge, training=True, demo=False):
         
         self.running = True
@@ -104,21 +102,21 @@ class Model:
             except:
                 pass
 
-        #if not is_new_obs:
-        #    # promote to observe new dps
-        #    self.ge.fitness -= 1
-
     def update_grid_fitness(self, x, y):
         '''Update the fitness according to the new dp coord'''
         
+        # intermediate value, limit of the acceptable number of observations
+        inter_1 = Spec.MAX_OBS // 4
+        inter_2 = Spec.MAX_OBS // 2
+
         is_new_obs = False
         if self.grid[x,y] == 0: 
             # if it's a new obervation
             self.ge.fitness += 2
             is_new_obs = True
-        elif 0 < self.grid[x,y] <= 10: 
+        elif 0 < self.grid[x,y] <= inter_1: 
             self.ge.fitness += .5
-        elif 10 < self.grid[x,y] <= 20:
+        elif inter_1 < self.grid[x,y] <= inter_2:
             self.ge.fitness -= .3
         else:
             # to avoid none moving robot
@@ -181,8 +179,9 @@ class Model:
     def create_inputs_views(self, inputs_directions, inputs_hist_pos):
         '''Create representation of the inputs'''
         
-        self.view_dir = np.zeros(Spec.GRID_SHAPE)
-        self.view_pos = np.zeros(Spec.GRID_SHAPE)
+        # create images
+        self.view_dir = np.zeros((Spec.GRID_SIZE, Spec.GRID_SIZE, 3), dtype='int32')
+        self.view_pos = np.zeros((Spec.GRID_SIZE, Spec.GRID_SIZE, 3), dtype='int32')
 
         middle = (Spec.GRID_SIZE//2, Spec.GRID_SIZE//2)
 
@@ -193,8 +192,8 @@ class Model:
             idxs = self.get_idxs(current_s_grid, i)
 
             if idxs.ndim == 2:
-                self.view_dir[idxs[:,0], idxs[:,1]] = inputs_directions[i]
-                self.view_pos[idxs[:,0], idxs[:,1]] = inputs_hist_pos[i]
+                self.view_dir[idxs[:,0], idxs[:,1],:] = inputs_directions[i] * 255
+                self.view_pos[idxs[:,0], idxs[:,1],:] = inputs_hist_pos[i] * 255
 
     def get_predictions(self, position):
         '''Get outputs from the neural network'''
@@ -233,16 +232,10 @@ class Model:
     @staticmethod
     def is_in_room(plan, position):
         '''Return if the given position is in the room (plan argument)'''
-        # check first rectangle of room
-        a, b, c = plan[0], plan[1], plan[2] # 1, 0, 7
-        if is_in_rect(a, b, c, position):
-            return True
-        return False
-        # check second rectangle of room
-        a, b, c = plan[3], plan[4], plan[5]
-        if is_in_rect(a, b, c, position):
-            return True
-        return False
+        # 1 0 7 - 3 4 5
+        # check if in rectangle
+        a, b, c = plan[0], plan[1], plan[2]
+        return is_in_rect(a, b, c, position)
 
     def check_finish(self):
         '''Check if the simulation covered the entire room'''
@@ -259,7 +252,7 @@ class Model:
 
     def get_finish_bonus(self):
         '''Add a bonus according to the number of orders needed to cover the room'''
-        return 5*(self.max_orders - self.n_order)
+        return 5*(Spec.MAX_ORDERS - self.n_order)
 
     def update_order_history(self, output):
         '''
@@ -325,12 +318,15 @@ class Model:
         '''When training, update running state according to position, output, number of orders'''
         
         if not self.is_in_room(self.plan, position): # if out of room -> stop
+            print('out', self.n_order)
             self.ge.fitness -= 300
             self.running = False
-        elif np.max(self.grid) > 40: # avoid none moving robot
+        elif np.max(self.grid) > Spec.MAX_OBS: # avoid none moving robot
+            print('obs', self.n_order)
             self.ge.fitness -= 250
             self.running = False
         elif self.blocked_duration == 5:
+            print('block', self.n_order)
             self.ge.fitness -= 250
             self.running = False
 

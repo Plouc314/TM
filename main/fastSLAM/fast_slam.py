@@ -1,28 +1,22 @@
-from multiprocessing import Process, Queue
-import sys
-import random
-import math
+import random, math, os
 import numpy as np
+from multiprocessing import Process, Queue
 from copy import deepcopy
 from .slam_helper import resampling, timer
 from .particle2 import Particle2
 
+
+# FastSlam object is inspired by https://github.com/nwang57/FastSLAM/blob/master/fast_slam.py
+# 
+# Methods annoted with a 1 are copy of the original object.
+
+
 class FastSlam:
     """Main class that implements the FastSLAM2.0 algorithm"""
-    def __init__(self, x, y, orien, reduce_lms=True, particle_size = 50):
-        self.particles = [Particle2(x, y, orien + .5*(random.random()-.5)) for i in range(particle_size)]
+    def __init__(self, x, y, orien, particle_size = 50):
+        self.particles = [Particle2(x, y, orien + .1*(random.random()-.5)) for i in range(particle_size)]
         self.robot = Particle2(x, y, orien, is_robot=True)
-        self.reduce_lms = reduce_lms
         self.particle_size = particle_size
-        self.clean_counter = 0
-
-    @timer
-    def clean_lms(self):
-        for p in self.particles:
-            original_lm = deepcopy(p.landmarks)
-            p.landmarks = original_lm[:-10]
-            last_ones = list(np.random.choice(original_lm[-10:],5))
-            p.landmarks.extend(last_ones)
 
     @timer
     def update_p(self, obs):
@@ -51,27 +45,20 @@ class FastSlam:
         obs list (distance, angle): Observation of landmark(s)
         '''
         # move particles
-        if mov[0]: 
-            self.move_forward(mov[0])
-        else:
-            self.turn_left(int(mov[1] * 180/math.pi))
+        
+        # start by turn
+        self.turn_left(int(mov[1] * 180/math.pi))
+        # then move
+        self.move_forward(mov[0])
+            
         # update particles
-        self.update_p(np.array(obs, dtype=np.float32))
+        self.update_p(np.array(obs))
 
         # try other resampling method
         self.particles = resampling(self.particles, self.particle_size)
-       
-        # try clean landmarks
-        if self.reduce_lms:
-            self.clean_counter += 1
-            if self.clean_counter == 4:
-                if len(self.particles[0].landmarks) > 10:
-                    self.clean_lms()
-                self.clean_counter = 0
             
-        
     def get_mean_pos(self):
-        ' return the mean position of the particles'
+        '''return the mean position of the particles'''
         pos_x = [p.pos_x for p in self.particles]
         pos_y = [p.pos_y for p in self.particles]
         mean_x = np.mean(pos_x)
@@ -79,27 +66,27 @@ class FastSlam:
         return mean_x, mean_y
     
     def get_mean_orien(self):
-        ' return the mean orientation of the particles'
+        '''return the mean orientation of the particles'''
         angles = [p.orientation for p in self.particles]
         mean_angle = np.mean(angles)
         return mean_angle
 
-    def move_forward(self, step):
+    def move_forward(self, step): # 1 #
         self.robot.forward(step)
         for p in self.particles:
             p.forward(step)
 
-    def turn_left(self, angle):
+    def turn_left(self, angle): # 1 #
         self.robot.turn_left(angle)
         for p in self.particles:
             p.turn_left(angle)
 
-    def turn_right(self, angle):
+    def turn_right(self, angle): # 1 #
         self.robot.turn_right(angle)
         for p in self.particles:
             p.turn_right(angle)
 
-    def resample_particles(self):
+    def resample_particles(self): # 1 #
         new_particles = []
         weight = [p.weight for p in self.particles]
         index = int(random.random() * self.particle_size)
@@ -115,9 +102,24 @@ class FastSlam:
             new_particles.append(new_particle)
         return new_particles
 
-    def get_predicted_landmarks(self, index):
-        return self.particles[index].landmarks
+    def get_landmarks_dps(self, index=0):
+        return [lm.pos() for lm in self.particles[index].landmarks]
+    
+    def get_particles_dps(self):
+        return [particle.pos() for particle in self.particles]
 
     def stop(self):
         print('normal:',len(self.particles[0].landmarks))
         print('cleaned:',len(self.particles[1].landmarks))
+    
+    def store_landmarks(self, n_particle=None):
+        
+        if not n_particle:
+            n_particle = self.particle_size
+
+        with open(os.path.join('data','landmarks.csv'), 'w') as file:
+            file.write('x,y\n')
+            for i in range(n_particle):
+                landmarks = self.get_landmarks_dps(i)
+                for lm in landmarks:
+                    file.write(f'{lm[0]},{lm[1]}\n')

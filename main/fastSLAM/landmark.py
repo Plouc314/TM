@@ -1,5 +1,7 @@
 import numpy as np
 
+# imported from https://github.com/nwang57/FastSLAM/blob/master/landmark.py
+
 class Landmark(object):
     """Data structure of a landmark associated with a particle.
        Origin is the left-bottom point

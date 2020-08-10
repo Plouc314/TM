@@ -4,6 +4,9 @@ from time import sleep
 from math import pi
 
 class Connection:
+    '''
+    Handeln connection and send/receive message
+    '''
     recieved = False
     msg = 'move 0 0'
 
@@ -37,14 +40,19 @@ class Connection:
 
 
 class BaseController:
+    '''
+    Can give order to the robot, given by user in terminal.  
+    Implement fastSlam.  
+    Has Connection Object.  
+    '''
     done = True
     connected = False
     SCALE = 5
-    def __init__(self, pos, alpha, reduce_lms=False):
+    def __init__(self, pos, alpha):
         self.conn = Connection()
         self.pos = pos
         self.alpha = alpha
-        self.fastslam = FastSlam(pos[0], pos[1], alpha, reduce_lms=reduce_lms)
+        self.fastslam = FastSlam(pos[0], pos[1], alpha)
 
     def send_order(self, order):
         self.done = False

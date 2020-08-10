@@ -48,22 +48,22 @@ class InfoBoard:
         self.cadre = Cadre((800, 1600), (1600,0), C.LIGHT_BROWN)
         self.text_inputs = TextBox((400, 100), (1800,100), C.LIGHT_BROWN,"Inputs:",font=Font.f(75))
         self.text_directions = TextBox((250, 80), (1700,300), C.LIGHT_BROWN,"Directions",font=Font.f(30))
-        self.text_history = TextBox((250, 80), (2050,300), C.LIGHT_BROWN,"History",font=Font.f(30))
-        self.text_n_order = TextBox((400, 50), (1700,700), C.LIGHT_BROWN,"Orders:",font=Font.f(30), centered=False)
+        self.text_history = TextBox((250, 80), (2050,300), C.LIGHT_BROWN,"Origine",font=Font.f(30))
+        self.text_n_order = TextBox((400, 50), (1700,700), C.LIGHT_BROWN,"Exécutions:",font=Font.f(30), centered=False)
         self.text_max_obs = TextBox((400, 50), (1700,750), C.LIGHT_BROWN,"Max Observations:",font=Font.f(30), centered=False)
-        self.text_fitness = TextBox((400, 50), (1700,800), C.LIGHT_BROWN,"Fitness:",font=Font.f(30), centered=False)
+        self.text_fitness = TextBox((400, 50), (1700,800), C.LIGHT_BROWN,"Fonction d'évaluation:",font=Font.f(30), centered=False)
         self.text_running = TextBox((400, 50), (1700,850), C.LIGHT_BROWN,"Running state:",font=Font.f(30), centered=False)
         self.directions = Form((250, 250), (1700, 400))
         self.hist_pos = Form((250, 250), (2050, 400))
     
     def set_n_order(self, n):
-        self.text_n_order.set_text(f"Orders: {n}")
+        self.text_n_order.set_text(f"Exécutions: {n}")
     
     def set_max_obs(self, n):
         self.text_max_obs.set_text(f"Max Observations: {n}")
 
     def set_fitness(self, n):
-        self.text_fitness.set_text(f'Fitness: {n:.1f}')
+        self.text_fitness.set_text(f"Fonction d'évaluation: {n:.1f}")
     
     def set_running(self, value):
         self.text_running.set_text(f'Running state: {value}')
@@ -82,13 +82,12 @@ class InfoBoard:
 
 class Interface(BaseInterface):
     '''
-    Base of the interface
-
-    Update the screen,\n
-    Manage the dimension,\n
-    Basic event reaction,\n
-    Can keep track of the movements,\n
-    In simulation, display the plan\n
+    Base of the interface  
+    Update the screen,  
+    Manage the dimension,  
+    Basic event reaction,  
+    Can keep track of the movements,  
+    In simulation, display the plan  
     '''
     
     running = True
@@ -118,6 +117,7 @@ class Interface(BaseInterface):
         Const.dim = cls.dim
         cls.text_scalebar = TextBox((Const['UNIT'], 40), cls.scalebar_pos, text='1', color=C.BROWN, text_color=C.WHITE, font=Font.f(30))
         cls.info_board = InfoBoard()
+        cls.is_plan_displayed = True
 
     @classmethod
     def set_robot(cls, robot):
@@ -137,7 +137,7 @@ class Interface(BaseInterface):
         if cls.plan:
             # change the state of the plan (displayed/not)
             if pressed[pygame.K_RETURN]:
-                cls.display = not cls.display
+                cls.is_plan_displayed = not cls.is_plan_displayed
 
     @classmethod
     def display_plan(cls):
@@ -194,7 +194,7 @@ class Interface(BaseInterface):
             # store depart position
             cls.update_kt(cls.robot.get_pos(), scale=True)
         else:
-            raise AttributeError('must have a robot assigned')
+            raise AttributeError('Must have a robot assigned')
     
     @classmethod
     def set_pos(cls, pos, scale=True):
@@ -224,7 +224,7 @@ class Interface(BaseInterface):
         '''
         pressed, events = super().run()
 
-        if cls.plan:
+        if cls.plan and cls.is_plan_displayed:
             cls.display_plan()
 
         to_remove = []

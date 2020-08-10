@@ -8,12 +8,18 @@ from interface import Interface, Delayer, C, Robot
 from specifications import Specifications as Spec
 
 class BaseSimulation:
-    
+    '''
+    Base object of the simulation.  
+    Can have as attribute: a Robot, a plan, fastslam  
+    Handeln observation -> collisions with plan  
+    Arguments: 
+        with_robot, with_fastslam: if robot/fastslam is linked to simulation
+        plan: if not specified, take Interface's plan
+    '''
     sensor_scope = Spec.SENSOR_SCOPE
-    noise_scale = 10
+    noise_scale = Spec.NOISE_POWER
 
     robot = None
-    landmarks, particles = [], []
     def __init__(self, with_robot=True, plan=None, with_fastslam=True):
         
         if with_robot:
@@ -75,21 +81,37 @@ class BaseSimulation:
 
         return cols
 
+    def get_observations(self, collisions):
+        '''Return the observations in the correct format for fastslam'''
+        
+        obs = np.zeros((len(collisions), 2))
+        for i, col in enumerate(collisions):
+            if col:
+                # get obs and movement of the robot
+                dis = euclidean_distance(self.robot.get_pos(), col)
+                angle = sense_direction(self.robot.get_pos(), col, 0.0)
+                obs[i,:] = dis, angle
+
+        return obs
+
     @staticmethod
     def get_noise(scale, size):
+        '''create noise of desired size'''
         random.seed(random.randint(0,100))
-        # create noise of desired size
         noise = [ random.randint(0, scale) - scale//2 for i in range(size)]
         return noise
-
         
 localization_deco = Delayer(15)
 
 class ManualSimulation(BaseSimulation):
+    '''
+    Simulation where the move of the robot are chosen with keys w,a,s,d.  
+    Implements fastslam. Display another robot to show the supposed position of the robot according to fastslam.  
+    '''
     # for fastSlam
     mov_state = None # True: moving, False: turning, None: deplacement not started
     move_counter = 0
-    ml = None
+
     def __init__(self):
         super().__init__()
         self.sample_robot = Robot(Interface.robot.get_pos(), Interface.robot.orien, display_border=False)
@@ -136,28 +158,24 @@ class ManualSimulation(BaseSimulation):
 
     @timer
     def localization(self):
-        
+
+        # re-place the particles -> remove old ones
         Interface.reset_dps()
+
         # compute displacement of the robot with the pos_history
         dis = euclidean_distance(self.history_state['pos'], self.robot.get_pos())
         angle = self.robot.orien - self.history_state['angle']
         mov = [dis, angle]
 
         cols = self.collision()
-        obs = []
-        for col in cols:
-            if col:
-                # get obs and movement of the robot
-                dis = euclidean_distance(self.robot.get_pos(), col)
-                angle = sense_direction(self.robot.get_pos(), col, 0.0)
-                obs.append([dis, angle])
-
-        obs = np.array(obs)
+        
+        # get observations
+        obs = self.get_observations(cols)
         
         # execute fastslam
         self.fastslam(mov,obs)
 
-        # update dps: landmarks, particles
+        # display dps: landmarks and particles
 
         landmarks = self.fastslam.get_landmarks_dps()
 
@@ -167,8 +185,7 @@ class ManualSimulation(BaseSimulation):
 
         Interface.add_dps(particles, C.WHITE)
         
-
-    def __call__(self, pressed):
+    def run(self, pressed):
         
         self.react_events(pressed)
 
@@ -177,6 +194,7 @@ class ManualSimulation(BaseSimulation):
 
         self.sample_robot.display()
 
+        # add the landmarks of another particles -> give an idea of the dif between the lms
         lm2 = self.fastslam.get_landmarks_dps(1)
 
         Interface.add_dps(lm2, C.PURPLE)
@@ -186,14 +204,30 @@ class ManualSimulation(BaseSimulation):
 
 
 class MLSimulation(BaseSimulation):
-    def __init__(self, model, position=None, plan=None, graphics=False):
+    '''
+    Simulation that implements the neural network (nn). 
+    The nn is wrapped in a Model object that handeln all the machine learning processes. 
+    All the movements are chosen by the nn.  
+    Arguments:
+        - model: the Model object
+        - graphics: if the simulation implements graphics, if True: must setup Interface
+        - plan: if not specified, take the Interface's plan
+        - position: if not specified, try to take the robot's position (must have graphics)
+        - with_fastlsam: if the position is determined by fastslam
+    '''
+    def __init__(self, model, plan=None, graphics=False, position=None, with_fastslam=False):
 
-        # if graphics are enabled, link to Interface.robot to update his position
+        # if graphics are enabled, link to Interface.robot to update his position, set fastSLAM
         # if plan is not specified, take Interface's plan
-        super().__init__(with_robot=graphics, plan=plan, with_fastslam=False) 
+        super().__init__(with_robot=graphics, plan=plan, with_fastslam=with_fastslam) 
 
         self.started = False
         self.model = model
+
+        # store previous move for fastslam
+        self.with_fastslam = with_fastslam
+        self.previous_distance = 0
+        self.dif_angle = 0
 
         # set model plan -> training
         if plan:
@@ -238,11 +272,33 @@ class MLSimulation(BaseSimulation):
             self.started = True
             collisions = self.turn_around()
 
+        # get model orders
         angle, distance = self.model.run(self.pos, collisions)
 
-        # execute order
-        self.orien = angle
-        self.move(distance)
+        if self.with_fastslam:
+            # run fastslam to update position
+
+            # get movement values
+            dif_angle = angle - self.orien
+            previous_distance = distance
+
+            # run fastslam
+            mov = [previous_distance, dif_angle]
+            obs = self.get_observations(collisions)
+            self.fastslam(mov, obs)
+            
+            # update position and orien
+            self.pos = self.fastslam.get_mean_pos()
+            self.orien = self.fastslam.get_mean_orien()
+
+            # dislay particles
+            particles = self.fastslam.get_particles_dps()
+            Interface.add_dps(particles, C.WHITE, is_permanent=False)
+        
+        else:
+            # execute order
+            self.orien = angle
+            self.move(distance)
 
         if self.as_graphics:
             # update robot object position
@@ -256,7 +312,9 @@ class MLSimulation(BaseSimulation):
             Interface.info_board.hist_pos.set_surf(view_pos)
             Interface.info_board.directions.set_surf(view_dir)
 
-            # add landmarks
-            Interface.add_dps(collisions, C.BORDEAU)
-            #print(f'turn {angle:.1f}, move {distance:.1f}')
+            # add landmarks/observations
+            if self.with_fastslam:
+                Interface.add_dps(self.fastslam.get_landmarks_dps(), C.BORDEAU, is_permanent=False)
+            else:
+                Interface.add_dps(collisions, C.BORDEAU)
     

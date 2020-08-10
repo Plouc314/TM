@@ -7,6 +7,10 @@ from .slam_helper import *
 from .landmark import Landmark
 from .particle import Particle
 
+# Modified version of https://github.com/nwang57/FastSLAM/blob/master/particle2.py
+# modified update(self) to implement multiprocessing, optimised a bit the function
+# created select_landmarks method to optimise whole process
+
 counter = Counter()
 
 class Particle2(Particle):

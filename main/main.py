@@ -1,26 +1,22 @@
-from interface import Interface, Robot, Sensor, Dp
+from interface import Interface, Robot, Const, C
 from controller import BaseController
-from simul import BaseSimulation
-from math import pi
 import pygame
 
-YELLOW = (255,255,100)
+Interface.setup(Const['WINDOW'], 'Plan', font_color=C.BROWN)
 
-robot = Robot((600,500),0,[Sensor(0)])
-inter = Interface(robot)
+Interface.set_robot(Robot((800,800), 0))
 
-inter.keep_track_mov(YELLOW)
+Interface.keep_track_mov(C.YELLOW)
 
-controller = BaseController(robot.pos, robot.alpha)
+controller = BaseController(Interface.robot.get_pos(), Interface.robot.orien)
 
 
-while inter.running:
-    pressed = inter.run()
-
+while Interface.running:
+    
     if controller.done and controller.connected:
         order = input('Enter an order: ')
         if order == 'quit':
-            inter.running = False
+            Interface.running = False
             break
         controller.send_order(order)
 
@@ -28,15 +24,17 @@ while inter.running:
         controller.handeln_data(controller.conn.msg)
         
         # update robot
-        inter.pos = controller.pos
-        inter.robot.alpha = controller.alpha
+        Interface.set_pos(controller.pos)
+        Interface.robot.orien = controller.alpha
 
     # get and display particles and landmarks
-    landmarks = BaseSimulation.get_landmarks(controller.fastslam)
-    particles = BaseSimulation.get_particles(controller.fastslam)
-    BaseSimulation.display_dps(inter.screen, particles)
-    BaseSimulation.display_dps(inter.screen, landmarks)
+    landmarks = controller.fastslam.get_landmarks_dps()
+    particles = controller.fastslam.get_particles_dps()
+    Interface.add_dps(particles, C.WHITE, is_permanent=False)
+    Interface.add_dps(landmarks, C.BORDEAU, is_permanent=False)
 
-BaseSimulation.store_landmarks(controller.fastslam, 'landmarks.csv', 50)
+    pressed = Interface.run()
+
+controller.fastslam.store_landmarks()
 controller.conn.stop()
 

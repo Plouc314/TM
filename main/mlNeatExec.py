@@ -6,20 +6,20 @@ from planGenerator import Generator
 from mlneat.base import Train, config, Model, POS_START
 from interface import Interface, Robot, Const, C
 
-def use_simulation(plan_idx, filename='gen.pickle'):
+def use_simulation(plan_idx, filename='gen.pickle', frame_time=.5, with_fastslam=False):
     '''
-    Test the current best genome on a chosen plan
+    Test the genome on a chosen plan
     '''
     # load plan
     g = Generator(Const['WINDOW'])
-    g.load_data()
+    plans = g.load_plans()
 
     # setup Interface
     Interface.setup(Const['WINDOW'], 'Plan', font_color=C.BROWN, FPS=30)
 
     Interface.set_robot(Robot(POS_START, 0))
 
-    Interface.set_plan(g.data[plan_idx])
+    Interface.set_plan(plans[plan_idx])
 
     Interface.keep_track_mov(C.YELLOW)
 
@@ -31,10 +31,12 @@ def use_simulation(plan_idx, filename='gen.pickle'):
 
     model = Model(genome, training=False, demo=True)
 
-    simulation = MLSimulation(model, graphics=True)
+    simulation = MLSimulation(model, graphics=True, with_fastslam=with_fastslam)
 
-    while Interface.running:
+    while True:
         pressed, events = Interface.run()
+        if not Interface.running:
+            break
 
         simulation.run()
 
@@ -43,11 +45,11 @@ def use_simulation(plan_idx, filename='gen.pickle'):
         Interface.info_board.set_fitness(simulation.model.ge.fitness)
         Interface.info_board.set_running(simulation.running)
 
-        time.sleep(.4)
+        time.sleep(frame_time)
 
     simulation.model.store_grid()
 
 
-#Train.train(100)
+#Train.train(120, filename_genome='gen2_s400_i50.pickle')
 
-use_simulation(6, filename='gen1_s400_i10.pickle')
+use_simulation(30, filename='gen2_s400_i50.pickle', frame_time=.2, with_fastslam=False)

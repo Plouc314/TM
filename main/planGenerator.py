@@ -7,13 +7,19 @@ import pickle
 PATH = 'data/room.pickle'
 
 class Generator:
+    '''
+    Generator of rooms, can have either: 4, 6 or 8 corners
+
+    Methods: 
+        - generate_plans
+        - load_plans
+    '''
     def __init__(self, dimension, MARGIN=160):
         # store the postion of the dps, split in two list, one for each side (SW - NE) 
         self.dps = [[],[]]
         self.dim = dimension
         self.MARGIN = MARGIN
         
-    
     def create_seeds(self):
         seed1 = [randint(self.MARGIN*1.5, self.dim[0]//3 - 1.5 * self.MARGIN),randint(self.MARGIN*1.5, self.dim[1]//3 - 1.5 * self.MARGIN)]
         seed2 = [randint(self.dim[0]*2//3, self.dim[0] - 1.5*self.MARGIN), randint(self.dim[1]*2//3, self.dim[0] - 1.5*self.MARGIN)]
@@ -133,37 +139,31 @@ class Generator:
         elif ncorner == 8:
             return self.generate8()
 
-    def load_data(self):
+    def load_plans(self):
+        '''
+        Load previously generated plans
+        '''
         with open(PATH,'rb') as file:
-            data = pickle.load(file)
+            plans = pickle.load(file)
         
-        self.data = data
-        # declare vairable to use them in display_data
-        self.index, self.frame = 0, 0
-    
-    def display_data(self, iteration ,display_plan):
-        if self.index < iteration:
-            if self.frame == 0:
-                self.current_data = self.data[self.index]
-                self.index += 1
-            else:
-                display_plan(self.current_data)
-            if self.frame//10 == self.frame/10 and self.frame > 0:
-                self.frame = 0
-            else:
-                self.frame += 2
+        return plans
 
-def generate_data(number, dim, nwall):
-    '''Generate n plans in a given dimension, each plan is rotated of a random angle'''
-    g = Generator(dim)
-    data = []
-    for _ in range(number):
-        plan = g(nwall)
-        angle = 2*pi * random()
-        data.append(rotate(plan, angle))
+    def generate_plans(self, n, nwall):
+        '''
+        Generate n plans with a given number of corners, each plan is rotated of a random angle  
+        Store the generated plans in a .pickle  
+        Return the generated plans  
+        '''
+        plans = []
+        for _ in range(n):
+            plan = self.__call__(nwall)
+            angle = 2*pi * random()
+            plans.append(rotate(plan, angle))
 
-    with open(PATH,'wb') as file:
-        pickle.dump(data, file)
+        with open(PATH,'wb') as file:
+            pickle.dump(plans, file)
+        
+        return plans
 
 def get_mean_area(plans, scale_factor=200):
     '''Return the mean area of the given plans'''
@@ -179,13 +179,12 @@ def get_mean_area(plans, scale_factor=200):
     return np.mean(areas)
 
 if __name__ == '__main__':
-    generate_data(200, (1600,1600), 4)
 
     g = Generator((1600,1600))
 
-    g.load_data()
+    plans = g.generate_plans(200, 4)
 
-    print(f'meters: {get_mean_area(g.data):.1f}, pixels: {get_mean_area(g.data, 1):.0f}')
+    print(f'meters: {get_mean_area(plans):.1f}, pixels: {get_mean_area(plans, 1):.0f}')
 
     
 

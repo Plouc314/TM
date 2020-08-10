@@ -1,4 +1,5 @@
 """
+    Imported from https://github.com/nwang57/FastSLAM/blob/master/particle.py
     Implements the particle which has motion model, sensor model and EKFs for landmarks.
 """
 
@@ -33,10 +34,10 @@ class Particle(object):
     def set_noise(self):
         if self.is_robot:
             # Measurement Noise will detect same feature at different place
-            self.bearing_noise = 0.1
-            self.distance_noise = 0.1
-            self.motion_noise = 0.5
-            self.turning_noise = 1
+            self.bearing_noise = 0.1 # useless
+            self.distance_noise = 0.1 # useless
+            self.motion_noise = 10
+            self.turning_noise = 5
         else:
             self.bearing_noise = 0
             self.distance_noise = 0
@@ -47,17 +48,8 @@ class Particle(object):
         """Motion model.
            Moves robot forward of distance d plus gaussian noise
         """
-        x = self.pos_x + d * math.cos(self.orientation) + gauss_noise(0, self.motion_noise)
-        y = self.pos_y + d * math.sin(self.orientation) + gauss_noise(0, self.motion_noise)
-        if self.check_pos(x, y):
-            if self.is_robot:
-                return
-            else:
-                self.reset_pos()
-                return
-        else:
-            self.pos_x = x
-            self.pos_y = y
+        self.pos_x = self.pos_x + d * math.cos(self.orientation) + gauss_noise(0, self.motion_noise)
+        self.pos_y = self.pos_y + d * math.sin(self.orientation) + gauss_noise(0, self.motion_noise)
 
     def turn_left(self, angle):
         self.orientation = (self.orientation + (angle + gauss_noise(0, self.turning_noise)) / 180. * math.pi) % (2 * math.pi)
@@ -72,10 +64,6 @@ class Particle(object):
     def set_pos(self, x, y, orien):
         """The arguments x, y are associated with the origin at the bottom left.
         """
-        if x > WINDOWWIDTH:
-            x = WINDOWWIDTH
-        if y > WINDOWHEIGHT:
-            y = WINDOWHEIGHT
         self.pos_x = x
         self.pos_y = y
         self.orientation = orien

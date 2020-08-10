@@ -13,7 +13,8 @@ def timer(func):
         return result
     return inner
 
-WINDOWWIDTH, WINDOWHEIGHT = 1600, 1600
+#####
+# imported from https://github.com/nwang57/FastSLAM
 
 def gauss_noise(mu, sig):
     return random.gauss(mu, sig)
@@ -43,6 +44,7 @@ def sense_direction(robot_pos, landmark, noise):
     else:
         result = direction + angle_noise
     return result
+#####
 
 #####
 # imported from https://pythonrobotics.readthedocs.io/en/latest/modules/slam.html
@@ -78,8 +80,8 @@ def resampling(particles, particles_size):
     Neff = 1.0 / (pw @ pw.T)  # Effective particle number
     
 
-    #if Neff < particles_size/1.5:  # resampling
-    if random.random() < .3: # do it 30% of the time because of for some reasons(?) the other test is always False
+    if Neff < particles_size/1.5:  # resampling
+    #if random.random() < .3: # do it 30% of the time because of for some reasons(?) the other test is always False
         wcum = np.cumsum(pw)
         base = np.cumsum(pw * 0.0 + 1 / particles_size) - 1 / particles_size
         resampleid = base + np.random.rand(base.shape[0]) / particles_size

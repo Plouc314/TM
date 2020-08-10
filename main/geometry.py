@@ -35,7 +35,6 @@ def rotate(dps, angle):
 
 ##### 
 # imported - https://www.codeproject.com/Tips/864704/Python-Line-Intersection-for-Pygame
-
 def slope(p1, p2) :
    return (p2[1] - p1[1]) * 1. / (p2[0] - p1[0])
    
@@ -75,7 +74,6 @@ def segment_intersect(line1, line2) :
          return None
 
    return intersection_pt
-
 #####
 
 def is_between_lines(line1, line2, dp):
@@ -96,10 +94,9 @@ def is_between_lines(line1, line2, dp):
 # imported from https://pythonrobotics.readthedocs.io/en/latest/modules/slam.html
 def pi_2_pi(angle):
     return (angle + pi) % (2 * pi) - pi
-
 #####
-# inspired from https://stackoverflow.com/questions/17136084/checking-if-a-point-is-inside-a-rotated-rectangle
 
+# inspired from https://stackoverflow.com/questions/17136084/checking-if-a-point-is-inside-a-rotated-rectangle
 def det(a, b):
     return a[0] * b[1] - a[1] * b[0]
 
@@ -122,5 +119,4 @@ def is_in_rect(a, b, c, p):
     d = get_d(a, b, c)
     sum_triangle = ( area(a, p, d) + area(d, p, c) + area(c, p, b) + area(p, b, a) ) / 2
     return sum_triangle <= area(a, b, c)
-
 #####
