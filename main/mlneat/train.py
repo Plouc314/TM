@@ -20,7 +20,6 @@ config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
                     config_path)
 ####
 
-POS_START = (Spec.WINDOW[0]//2,Spec.WINDOW[0]//2)
 
 # set some attributes to model class (avoid recursive import)
 Model.config = config
@@ -38,7 +37,7 @@ class Train:
         cls.plans = []
         for plan in plans:
             # verify that the starting position is in the room
-            if Model.is_in_room(plan, POS_START):
+            if Model.is_in_room(plan, Spec.POS_START):
                 cls.plans.append(plan)
         cls.plan_idx = 0
 
@@ -77,11 +76,11 @@ class Train:
             genome.fitness = 0  # start with fitness level of 0
             # run each generation on a diferent plan
             model = Model(genome)
-            simul = MLSimulation(model, POS_START, plan)
+            simul = MLSimulation(model, Spec.POS_START, plan=plan)
             simuls.append(simul)
             models.append(model)
         
-        Train.plan_idx += .25 # train 4 times on each plan
+        Train.plan_idx += .5 # train 2 times on each plan
 
         n_order = 0
         running = True
@@ -106,15 +105,19 @@ class Train:
         for model in models:
             model.update_fitness_end()
 
-        # get mean/max of fitness
+        # get mean/max of fitness, success rate
         fitnesses = []
+        n_success = 0
         for model in models:
             fitnesses.append(model.ge.fitness)
+            if model.success:
+                n_success += 1
 
         mean = np.mean(fitnesses)
         best = np.max(fitnesses)
+        ratio = n_success/len(fitnesses)
 
-        Train.generation_results.append((mean, best))
+        Train.generation_results.append({'mean':mean, 'best':best, 'rate':ratio})
    
     @classmethod
     def train(cls, generation, filename_genome='gen.pickle'):
@@ -134,7 +137,15 @@ class Train:
         # start training
         winner = p.run(cls.eval_genomes, generation)
 
-        # save mean fitness progression
+        # show fatal errors stats
+        total = Model.fatal_errors['out'] + Model.fatal_errors['block'] + Model.fatal_errors['obs']
+        out = Model.fatal_errors['out']
+        block = Model.fatal_errors['block']
+        obs = Model.fatal_errors['obs']
+
+        print(f'out: {out/total*100:.1f}% block: {block/total*100:.1f}% obs: {obs/total*100:.1f}%')
+
+        # save fitness progression
         with open(os.path.join('data', 'fitness.pickle'), 'wb') as file:
             pickle.dump(cls.generation_results, file)
 

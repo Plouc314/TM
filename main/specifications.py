@@ -12,5 +12,6 @@ class Specifications:
     N_SECTOR = 12
     SCALE_FACTOR = WINDOW[0] / GRID_SIZE
     DIF = 2 * pi / N_SECTOR
-    NOISE_POWER = 50
+    NOISE_POWER = 10
     MAX_OBS = 40
+    POS_START = (800,800)

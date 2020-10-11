@@ -77,11 +77,9 @@ def resampling(particles, particles_size):
 
     pw = np.array(pw)
 
-    Neff = 1.0 / (pw @ pw.T)  # Effective particle number
-    
+    Neff = 1.0 / (pw @ pw.T)  # Effective particle number, 1 / Σ w²
 
     if Neff < particles_size/1.5:  # resampling
-    #if random.random() < .3: # do it 30% of the time because of for some reasons(?) the other test is always False
         wcum = np.cumsum(pw)
         base = np.cumsum(pw * 0.0 + 1 / particles_size) - 1 / particles_size
         resampleid = base + np.random.rand(base.shape[0]) / particles_size
@@ -97,10 +95,8 @@ def resampling(particles, particles_size):
         for i in range(len(inds)):
             particles[i].pos_x = tparticles[inds[i]].pos_x
             particles[i].pos_y = tparticles[inds[i]].pos_y
-            #particles[i].yaw = tparticles[inds[i]].yaw
             particles[i].weight = 1.0 / particles_size
 
-    
     return particles
 
 def pi_2_pi(angle):
@@ -111,7 +107,7 @@ def pi_2_pi(angle):
 # use to have an idea of functions performance and spot bottleneck
 class Counter:
     funcs = {'names':[], 'iterations':[],'time':[]}
-    def __call__(self,func):
+    def __call__(self, func):
         self.funcs['names'].append(func.__name__)
         self.funcs['iterations'].append(0)
         self.funcs['time'].append(0)

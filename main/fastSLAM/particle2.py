@@ -1,21 +1,22 @@
-import random
-import math
+'''
+Modified version of https://github.com/nwang57/FastSLAM/blob/master/particle2.py
+modified update(self) to implement multiprocessing, optimised a bit the function
+created select_landmarks method to optimise whole process
+'''
+
+import random, math
 from operator import itemgetter
 import numpy as np
 from scipy import linalg
 from .slam_helper import *
 from .landmark import Landmark
 from .particle import Particle
+from specifications import Specifications as Spec
 
-# Modified version of https://github.com/nwang57/FastSLAM/blob/master/particle2.py
-# modified update(self) to implement multiprocessing, optimised a bit the function
-# created select_landmarks method to optimise whole process
 
 counter = Counter()
 
 class Particle2(Particle):
-    sensor_scope = 0
-    sensor_angles = 0
     SELECT_LMS_THRESHOLD = 1.2
     """Inherit from Particle. Incorporates latest obs in the proposal distribution"""
     def __init__(self, x, y, orien, is_robot=False):
@@ -25,11 +26,10 @@ class Particle2(Particle):
 
     def update(self, obs, q): ###
         """After the motion, update the weight of the particle and its EKFs based on the sensor data"""
-        counter.reset()
         # Find data association first
         data_association = []
         for o in obs:
-            prob = 1e-30
+            prob = 1e-40
             landmark_idx = -1
             if len(self.landmarks) != 0:
                 # find the data association with ML
@@ -65,11 +65,13 @@ class Particle2(Particle):
                 self.update_landmark(np.transpose(np.array([da[0]])), da[1], predicted_obs, featurn_jacobian, adj_cov)
             else:
                 self.weight *= da[2]
-        prior = multi_normal(initial_pose, initial_pose, self.control_noise)
-        prop = multi_normal(initial_pose, pose_mean, pose_cov)
+        
+        new_pos = np.array([[self.pos_x], [self.pos_y], [self.orientation]])
+
+        prior = multi_normal(new_pos, initial_pose, self.control_noise)
+        prop = multi_normal(new_pos, pose_mean, pose_cov)
         self.weight = self.weight * prior / prop
 
-        #counter.result()
         q.put([self]) ###
 
     @counter
@@ -132,11 +134,11 @@ class Particle2(Particle):
 
         for i, lm in enumerate(self.landmarks):
             # check according to the distance (sensor scope)
-            if euclidean_distance(self.pos(), lm.pos()) < self.SELECT_LMS_THRESHOLD*self.sensor_scope:
+            if euclidean_distance(self.pos(), lm.pos()) < self.SELECT_LMS_THRESHOLD * Spec.SENSOR_SCOPE:
                 # check according to the angle of the observation (angle of vision)
                 angle = cal_direction(self.pos(), lm.pos())-pi_2_pi(self.orientation)
                 angle = pi_2_pi(angle)
-                if abs(angle) < self.SELECT_LMS_THRESHOLD*self.sensor_angles[1]:
+                if abs(angle) < self.SELECT_LMS_THRESHOLD * Spec.SENSOR_ANGLES[1]:
                     selected_lms.append((i,lm))
 
         #print(f'selected: {len(selected_lms)/len(self.landmarks)*100:.0f}%')

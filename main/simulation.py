@@ -88,7 +88,7 @@ class BaseSimulation:
         for i, col in enumerate(collisions):
             if col:
                 # get obs and movement of the robot
-                dis = euclidean_distance(self.robot.get_pos(), col)
+                dis = euclidean_distance(col, self.robot.get_pos())
                 angle = sense_direction(self.robot.get_pos(), col, 0.0)
                 obs[i,:] = dis, angle
 
@@ -156,7 +156,6 @@ class ManualSimulation(BaseSimulation):
     
         self.localization_event(pressed)
 
-    @timer
     def localization(self):
 
         # re-place the particles -> remove old ones
@@ -171,9 +170,12 @@ class ManualSimulation(BaseSimulation):
         
         # get observations
         obs = self.get_observations(cols)
-        
+
+        print(mov)        
+        print(obs)
+
         # execute fastslam
-        self.fastslam(mov,obs)
+        self.fastslam.run(mov,obs)
 
         # display dps: landmarks and particles
 
@@ -215,7 +217,7 @@ class MLSimulation(BaseSimulation):
         - position: if not specified, try to take the robot's position (must have graphics)
         - with_fastlsam: if the position is determined by fastslam
     '''
-    def __init__(self, model, plan=None, graphics=False, position=None, with_fastslam=False):
+    def __init__(self, model, position=None, plan=None, graphics=False, with_fastslam=False):
 
         # if graphics are enabled, link to Interface.robot to update his position, set fastSLAM
         # if plan is not specified, take Interface's plan
@@ -255,6 +257,10 @@ class MLSimulation(BaseSimulation):
     def running(self):
         return self.model.running
 
+    @property
+    def success(self):
+        return self.model.success
+
     def turn_around(self):
         '''Get the collisions equvalent of a 360° of the robot'''
         collisions = []
@@ -285,7 +291,7 @@ class MLSimulation(BaseSimulation):
             # run fastslam
             mov = [previous_distance, dif_angle]
             obs = self.get_observations(collisions)
-            self.fastslam(mov, obs)
+            self.fastslam.run(mov, obs)
             
             # update position and orien
             self.pos = self.fastslam.get_mean_pos()

@@ -13,7 +13,7 @@ from .landmark import Landmark
 
 class Particle(object):
     """Represents the robot and particles"""
-    TOL = 1E-10
+    TOL = 1E-30
 
     def __init__(self, x, y, orien, scope=50,  is_robot=False):
         """pos_x: from left to right
@@ -36,8 +36,8 @@ class Particle(object):
             # Measurement Noise will detect same feature at different place
             self.bearing_noise = 0.1 # useless
             self.distance_noise = 0.1 # useless
-            self.motion_noise = 10
-            self.turning_noise = 5
+            self.motion_noise = 0.5
+            self.turning_noise = 1
         else:
             self.bearing_noise = 0
             self.distance_noise = 0
@@ -56,7 +56,6 @@ class Particle(object):
 
     def turn_right(self, angle):
         self.orientation = (self.orientation - (angle + gauss_noise(0, self.turning_noise)) / 180. * math.pi) % (2 * math.pi)
-
 
     def pos(self):
         return (self.pos_x, self.pos_y)
@@ -79,7 +78,7 @@ class Particle(object):
     def dick(self):
         return [(self.pos_x, self.pos_y), (self.pos_x + self.scope * math.cos(self.orientation), self.pos_y + self.scope * math.sin(self.orientation))]
 
-    def update(self, obs):
+    def update(self, obs, q):
         """After the motion, update the weight of the particle and its EKFs based on the sensor data"""
         for o in obs:
             prob = np.exp(-70)
@@ -96,6 +95,8 @@ class Particle(object):
                 # no initial landmarks
                 self.create_landmark(o)
             self.weight *= prob
+        
+        q.put([self]) ###
 
     def compute_jacobians(self, landmark):
         dx = landmark.pos_x - self.pos_x

@@ -19,11 +19,16 @@ plan_state_deco = Delayer(15)
 change_scale_deco = Delayer(15)
 
 class ConstClass:
+    '''
+    Store sizes for the gui.  
+    To used as a dict, with the difference that if a size is written in lower case
+    it will be scaled to current window ratio.
+    '''
     dim = None
     values = {
         'TOTAL_WINDOW': (2400, 1600),
         'WALL': 10,
-        'UNIT': 100,
+        'UNIT': 200,
         'DP': (10,10),
         'ROBOT': (100,100),
         'SMALL_WIDTH': 5,
@@ -37,12 +42,6 @@ class ConstClass:
 
 Const = ConstClass()
 
-from fastSLAM.particle2 import Particle2
-
-# set sensor specifications
-Particle2.sensor_scope = Spec.SENSOR_SCOPE
-Particle2.sensor_angles = Spec.SENSOR_ANGLES
-
 class InfoBoard:
     def __init__(self):
         self.cadre = Cadre((800, 1600), (1600,0), C.LIGHT_BROWN)
@@ -52,7 +51,7 @@ class InfoBoard:
         self.text_n_order = TextBox((400, 50), (1700,700), C.LIGHT_BROWN,"Exécutions:",font=Font.f(30), centered=False)
         self.text_max_obs = TextBox((400, 50), (1700,750), C.LIGHT_BROWN,"Max Observations:",font=Font.f(30), centered=False)
         self.text_fitness = TextBox((400, 50), (1700,800), C.LIGHT_BROWN,"Fonction d'évaluation:",font=Font.f(30), centered=False)
-        self.text_running = TextBox((400, 50), (1700,850), C.LIGHT_BROWN,"Running state:",font=Font.f(30), centered=False)
+        self.text_running = TextBox((400, 50), (1700,850), C.LIGHT_BROWN,"Evaluation:",font=Font.f(30), centered=False)
         self.directions = Form((250, 250), (1700, 400))
         self.hist_pos = Form((250, 250), (2050, 400))
     
@@ -65,8 +64,14 @@ class InfoBoard:
     def set_fitness(self, n):
         self.text_fitness.set_text(f"Fonction d'évaluation: {n:.1f}")
     
-    def set_running(self, value):
-        self.text_running.set_text(f'Running state: {value}')
+    def set_running(self, running, success):
+        if running:
+            value = 'en cours'
+        elif not running and success:
+            value = 'réussite'
+        elif not running and not success:
+            value = 'échec'
+        self.text_running.set_text(f'Evaluation: {value}')
 
     def display(self):
         self.cadre.display()
@@ -109,7 +114,7 @@ class Interface(BaseInterface):
     kt_dps = []
     
     # scalebar
-    scalebar_pos = (1400, 1500)
+    scalebar_pos = (1300, 1500)
 
     @classmethod
     def setup(cls, dimension, title, FPS=30, font_color=C.WHITE):
@@ -194,7 +199,7 @@ class Interface(BaseInterface):
             # store depart position
             cls.update_kt(cls.robot.get_pos(), scale=True)
         else:
-            raise AttributeError('Must have a robot assigned')
+            raise AttributeError('Must have a robot assigned.')
     
     @classmethod
     def set_pos(cls, pos, scale=True):
@@ -218,7 +223,7 @@ class Interface(BaseInterface):
             pygame.draw.line(cls.screen,cls.kt_color, cls.kt_dps[i].pos, cls.kt_dps[i+1].pos, Const['small_width'])
 
     @classmethod
-    def run(cls):
+    def run(cls, display_robot=True):
         '''
         Display the screen, plan, dps, robot, scale and get the inputs
         '''
@@ -244,7 +249,7 @@ class Interface(BaseInterface):
                 cls.update_kt(cls.robot.get_pos(), scale=True)
             cls.display_kt()
         
-        if cls.robot:
+        if cls.robot and display_robot:
             cls.robot.display() 
         
         cls.display_scalebar()

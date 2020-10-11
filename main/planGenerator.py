@@ -20,9 +20,10 @@ class Generator:
         self.dim = dimension
         self.MARGIN = MARGIN
         
-    def create_seeds(self):
-        seed1 = [randint(self.MARGIN*1.5, self.dim[0]//3 - 1.5 * self.MARGIN),randint(self.MARGIN*1.5, self.dim[1]//3 - 1.5 * self.MARGIN)]
-        seed2 = [randint(self.dim[0]*2//3, self.dim[0] - 1.5*self.MARGIN), randint(self.dim[1]*2//3, self.dim[0] - 1.5*self.MARGIN)]
+    def create_seeds(self, coef_marge=1.5):
+        marge = self.MARGIN * coef_marge
+        seed1 = [randint(marge, self.dim[0]//3 - marge),randint(marge, self.dim[1]//3 - marge)]
+        seed2 = [randint(self.dim[0]*2//3, self.dim[0] - marge), randint(self.dim[1]*2//3, self.dim[0] - marge)]
         self.dps[0].append(seed1)
         self.dps[1].append(seed2)
     
@@ -127,16 +128,21 @@ class Generator:
             rotated_plan.append(dp[::-1])
         return rotated_plan
 
-    def __call__(self, ncorner):
+    def generate(self, ncorner):
         
         self.dps = [[],[]]
-        # create seeds
-        self.create_seeds()
+        
         if ncorner == 4:
+            # create seeds
+            self.create_seeds()
             return self.generate4()
         elif ncorner == 6:
+            # create seeds
+            self.create_seeds()
             return self.generate6()
         elif ncorner == 8:
+            # create seeds
+            self.create_seeds()
             return self.generate8()
 
     def load_plans(self):
@@ -156,7 +162,7 @@ class Generator:
         '''
         plans = []
         for _ in range(n):
-            plan = self.__call__(nwall)
+            plan = self.generate(nwall)
             angle = 2*pi * random()
             plans.append(rotate(plan, angle))
 

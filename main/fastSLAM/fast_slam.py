@@ -1,14 +1,15 @@
+'''
+FastSlam object is inspired by https://github.com/nwang57/FastSLAM/blob/master/fast_slam.py
+
+Methods annoted with a 1 are copy of the original object.
+'''
+
 import random, math, os
 import numpy as np
 from multiprocessing import Process, Queue
 from copy import deepcopy
 from .slam_helper import resampling, timer
 from .particle2 import Particle2
-
-
-# FastSlam object is inspired by https://github.com/nwang57/FastSLAM/blob/master/fast_slam.py
-# 
-# Methods annoted with a 1 are copy of the original object.
 
 
 class FastSlam:
@@ -18,7 +19,6 @@ class FastSlam:
         self.robot = Particle2(x, y, orien, is_robot=True)
         self.particle_size = particle_size
 
-    @timer
     def update_p(self, obs):
         # implement multiprocessing to speed up the particles update
         processes = []
@@ -31,18 +31,17 @@ class FastSlam:
             except:
                 print('warning: particle on landmark.')
                 return
-        for [pro, q], i in zip(processes, range(len(self.particles))):
+        for [pro, q], i in zip(processes, range(self.particle_size)):
             pro.join()
             self.particles[i] = q.get()[0]
 
-    @timer
-    def __call__(self, mov, obs):
+    def run(self, mov, obs):
         '''
         Main function for localization
 
-        Arguments:
-        mov (distance, angle): displacement of the robot
-        obs list (distance, angle): Observation of landmark(s)
+        Arguments:  
+        mov (distance, angle): displacement of the robot  
+        obs list (distance, angle): Observation of landmark(s)  
         '''
         # move particles
         
@@ -52,10 +51,12 @@ class FastSlam:
         self.move_forward(mov[0])
             
         # update particles
-        self.update_p(np.array(obs))
+        obs = np.array(obs)
+        self.update_p(obs)
 
         # try other resampling method
-        self.particles = resampling(self.particles, self.particle_size)
+        self.resample_particles()
+        #self.particles = resampling(self.particles, self.particle_size)
             
     def get_mean_pos(self):
         '''return the mean position of the particles'''

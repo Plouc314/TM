@@ -1,4 +1,5 @@
 from fastSLAM.fast_slam import FastSlam
+from interface import Interface
 import paho.mqtt.client as mqtt
 from time import sleep
 from math import pi
@@ -7,8 +8,8 @@ class Connection:
     '''
     Handeln connection and send/receive message
     '''
-    recieved = False
-    msg = 'move 0 0'
+    has_new_msg = False
+    msg = None
 
     def __init__(self):
         self.client = mqtt.Client()
@@ -25,7 +26,7 @@ class Connection:
 
     def on_message(self, client, userdata, msg):
         self.msg = msg.payload.decode()
-        self.recieved = True
+        self.has_new_msg = True
     
     def on_disconnect(client, userdata,rc=0):
         self.client.loop_stop()
@@ -36,67 +37,105 @@ class Connection:
     def stop(self):
         self.client.publish("topic/order", 'stop')
         self.client.disconnect()
-        print('disconnected...')
+        print('Disconnected...')
 
 
 class BaseController:
-    '''
-    Can give order to the robot, given by user in terminal.  
-    Implement fastSlam.  
-    Has Connection Object.  
-    '''
-    done = True
+    
     connected = False
-    SCALE = 5
-    def __init__(self, pos, alpha):
+    order_pending = False
+    robot_error = False
+    mov = None
+    obs = None
+
+    def __init__(self, robot=None):
         self.conn = Connection()
-        self.pos = pos
-        self.alpha = alpha
-        self.fastslam = FastSlam(pos[0], pos[1], alpha)
+
+        if robot:
+            self.robot = robot
+        else:
+            self.robot = Interface.robot
+        
+        self.fastslam = FastSlam(self.robot.x, self.robot.y, self.robot.orien)
+
+    @property
+    def has_new_msg(self):
+        return self.conn.has_new_msg
 
     def send_order(self, order):
-        self.done = False
+        self.order_pending = True
         self.conn.send_order(order)
-
-    def update(self, mov, obs):
-        
-        #print('fastslam: {} {}'.format(mov, obs))
-        self.fastslam(mov, obs)
-
-        self.pos = self.fastslam.get_mean_pos()
-        self.alpha = self.fastslam.robot.orientation
-
-    def handeln_data(self, data):
-        print('Incoming msg:', data)
-        self.conn.recieved = False
-        data = data.split(' ')
-
-        if data[0] == 'connected':
-            self.connected = True
-            return
-        elif data[0] == 'move':
-            mov = [self.SCALE*float(data[1]), 0]
-        elif data[0] == 'turn':
-            mov = [0, float(data[1]) * 3.14/180]
-        
-        if data[-1] == 'done':
-            self.done = True
-            data = data[2:-1] # keep the measures, drop: order, mov, done
-            obs = []
-            for measure in data:
-                measure = measure.replace('(','').replace(')','')
-                angle, distance = measure.split(',')
-                angle = float(angle) * 3.14/180
-                distance = self.SCALE*float(distance)/10
-                if distance != self.SCALE * 255:
-                    obs.append((distance, self.fastslam.robot.orientation + angle))
-        else:
-            if float(data[2])/10 != 255: # max range of sensor
-                obs = [(self.SCALE*float(data[2])/10, self.fastslam.robot.orientation)]
-            else:
-                obs = []
-
-        self.update(mov, obs)
-        
     
+    def run_fastslam(self):
 
+        if self.mov == None or self.obs == None:
+            return
+
+        self.fastslam.run(self.mov, self.obs)
+
+        # reset variables in case of error/incorrect order
+        self.mov, self.obs = None, None
+
+        self.robot.set_pos(self.fastslam.get_mean_pos(), center=True, scale=True)
+        self.robot.set_orien(self.fastslam.get_mean_orien())
+
+    def decrypt_robot_state(self, msg):
+        '''
+        Extract the order, movement value (distance/angle) and all the observations (distance, angle from robot).  
+        Scale the movement value and observations.  
+        Return the mov variable (see fastslam), observations.
+        '''
+        lines = msg.split('\n')
+
+        # line 0 contains the order and mov val 
+        order, value = lines[0].split(' ')
+        
+        # scale the movement value
+        if order == 'turn':
+            # get angle in radian
+            angle = int(value) * pi/180
+            mov = [0, angle]
+        
+        elif order == 'move':
+            # distance in cm: 1px = 0.5 cm
+            distance = int(value) * 2
+            mov = [distance, 0]
+
+        # other lines contains observations
+        obs = [line.split(' ') for line in lines[1:]]
+
+        # scale the observations
+        for i in range(len(obs)):
+            # scale distance knowing that 200 px = 1 meter, 1 px = 5 mm
+            distance = int(obs[i][0]) / 5
+            angle = int(obs[i][1]) * pi/180
+            obs[i] = [distance, angle]
+
+        return mov, obs
+
+    def handeln_msg(self):
+        '''
+        Handeln incoming message from robot.  
+        Store informations in relevant attributes.  
+        '''
+        # reset has_new_msg val -> can receive other msg
+        self.conn.has_new_msg = False
+
+        print(f'[ROBOT] {self.conn.msg}')
+
+        if self.conn.msg == 'connected':
+            self.connected = True
+
+        elif self.conn.msg == 'ERROR': # check if an error occured
+            self.robot_error = True
+
+        elif self.conn.msg == "EXEC FAILURE": # check if order can be executed
+            self.order_pending = False
+
+        else:
+            # order is done
+            self.order_pending = False
+            # get robot movement data
+            self.mov, self.obs = self.decrypt_robot_state(self.conn.msg)
+
+            

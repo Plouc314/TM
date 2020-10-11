@@ -10,7 +10,7 @@ Interface.set_robot(Robot((600,600), 0))
 g = Generator(Const['WINDOW'])
 plans = g.load_plans()
 
-Interface.set_plan(plans[4])
+Interface.set_plan(plans[45])
 
 Interface.keep_track_mov(C.YELLOW)
 
@@ -19,5 +19,6 @@ simulation = ManualSimulation()
 while Interface.running:
     pressed, events = Interface.run()
     simulation.run(pressed)
+    
     
 simulation.store()

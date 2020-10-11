@@ -30,13 +30,16 @@ BASE_SECTORS_GRID = create_sectors_grid()
 
 class Model:
     
-    # will be set in base.py
+    # will be set in train.py
     config = None
 
-    def __init__(self, ge, training=True, demo=False):
+    # for stats
+    fatal_errors = {'out':0, 'obs':0, 'block':0}
+
+    def __init__(self, ge, demo=False):
         
         self.running = True
-        self.is_training = training
+        self.success = False # if the model has covered the entire room
         self.is_demo = demo
 
         self.position_history = []
@@ -93,9 +96,8 @@ class Model:
                 # get coord of each dps
                 x, y = self.get_coord(dp)
 
-                if self.is_training or self.is_demo:
-                    if self.update_grid_fitness(x,y):
-                        is_new_obs = True
+                if self.update_grid_fitness(x,y):
+                    is_new_obs = True
                 
                 # add new dp to grid
                 self.grid[x,y] += 1
@@ -232,10 +234,12 @@ class Model:
     @staticmethod
     def is_in_room(plan, position):
         '''Return if the given position is in the room (plan argument)'''
-        # 1 0 7 - 3 4 5
+        # 1 0 5 - 3 4 5
         # check if in rectangle
+
         a, b, c = plan[0], plan[1], plan[2]
-        return is_in_rect(a, b, c, position)
+        if is_in_rect(a, b, c, position):
+            return True
 
     def check_finish(self):
         '''Check if the simulation covered the entire room'''
@@ -252,7 +256,7 @@ class Model:
 
     def get_finish_bonus(self):
         '''Add a bonus according to the number of orders needed to cover the room'''
-        return 5*(Spec.MAX_ORDERS - self.n_order)
+        return 10*(Spec.MAX_ORDERS - self.n_order)
 
     def update_order_history(self, output):
         '''
@@ -264,11 +268,12 @@ class Model:
         self.order_count[output] += 1
 
         if len(self.order_history) >= 2:
-            # search 0, 1, 0, 1, 0, 1 pattern
-            if output == self.order_history[-2] and output != self.order_history[-1]: 
-                self.blocked_duration += 1
-            else:
-                self.blocked_duration = 0
+            # search 0, 1, 0, 1, 0, 1 or 2, 3, 2, 3 pattern
+            if (0 in self.order_history[-2:] and 1 in self.order_history[-2:]) or (2 in self.order_history[-2:] and 3 in self.order_history[-2:]):
+                if output == self.order_history[-2] and output != self.order_history[-1]: 
+                    self.blocked_duration += 1
+                else:
+                    self.blocked_duration = 0
         
         self.order_history.append(output)
 
@@ -318,16 +323,16 @@ class Model:
         '''When training, update running state according to position, output, number of orders'''
         
         if not self.is_in_room(self.plan, position): # if out of room -> stop
-            print('out', self.n_order)
+            self.fatal_errors['out'] += 1
             self.ge.fitness -= 300
             self.running = False
         elif np.max(self.grid) > Spec.MAX_OBS: # avoid none moving robot
-            print('obs', self.n_order)
-            self.ge.fitness -= 250
+            self.fatal_errors['obs'] += 1
+            self.ge.fitness -= 300
             self.running = False
-        elif self.blocked_duration == 5:
-            print('block', self.n_order)
-            self.ge.fitness -= 250
+        elif self.blocked_duration == 10: # avoid none moving robot
+            self.fatal_errors['block'] += 1
+            self.ge.fitness -= 300
             self.running = False
 
         # check if done
@@ -337,17 +342,21 @@ class Model:
                 self.ge.fitness += 100
                 # add a supplement to the fitness func (according to the number of order given)
                 self.ge.fitness += self.get_finish_bonus()
+                self.success = True
                 self.running = False
 
     def run(self, position, collisions):
+        '''
+        Take the position of the robot, the coordinates of the observations.  
+        Run the neural network, return the angle and distance to do.  
+        '''
         self.n_order += 1
 
         self.set_new_dps(collisions)
         
         angle, distance = self.get_predictions(position)
         
-        if self.is_training or self.is_demo:
-            self.update_running_state(position)
+        self.update_running_state(position)
                 
         return angle, distance
     
