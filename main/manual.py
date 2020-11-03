@@ -19,6 +19,7 @@ simulation = ManualSimulation()
 while Interface.running:
     pressed, events = Interface.run()
     simulation.run(pressed)
+
     
     
 simulation.store()

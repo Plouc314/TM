@@ -171,9 +171,6 @@ class ManualSimulation(BaseSimulation):
         # get observations
         obs = self.get_observations(cols)
 
-        print(mov)        
-        print(obs)
-
         # execute fastslam
         self.fastslam.run(mov,obs)
 

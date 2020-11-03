@@ -18,6 +18,7 @@ class FastSlam:
         self.particles = [Particle2(x, y, orien + .1*(random.random()-.5)) for i in range(particle_size)]
         self.robot = Particle2(x, y, orien, is_robot=True)
         self.particle_size = particle_size
+        self.resample_timer = 0
 
     def update_p(self, obs):
         # implement multiprocessing to speed up the particles update
@@ -54,9 +55,11 @@ class FastSlam:
         obs = np.array(obs)
         self.update_p(obs)
 
-        # try other resampling method
-        self.resample_particles()
-        #self.particles = resampling(self.particles, self.particle_size)
+        # resample particles every three execution
+        self.resample_timer += 1
+        if self.resample_timer == 3:
+            self.resample_timer = 0
+            self.particles = resampling(self.particles, self.particle_size)
             
     def get_mean_pos(self):
         '''return the mean position of the particles'''
@@ -71,6 +74,29 @@ class FastSlam:
         angles = [p.orientation for p in self.particles]
         mean_angle = np.mean(angles)
         return mean_angle
+    
+    def get_mean_landmarks(self):
+        
+
+        # get most frequent number of lms
+        numbers_lms = [len(p.landmarks) for p in self.particles]
+        n_lms = max(set(numbers_lms), key=numbers_lms.count)
+        n_particles = numbers_lms.count(n_lms)
+
+        lms = [[0,0] for _ in range(n_lms)]
+
+        for p in self.particles:
+            if len(p.landmarks) != n_lms:
+                continue
+            for i, lm in enumerate(p.landmarks):
+                lms[i][0] += lm.pos()[0]
+                lms[i][1] += lm.pos()[1]
+        
+        for lm in lms:
+            lm[0] /= n_particles
+            lm[1] /= n_particles
+        
+        return lms
 
     def move_forward(self, step): # 1 #
         self.robot.forward(step)

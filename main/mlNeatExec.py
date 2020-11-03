@@ -99,7 +99,7 @@ def test_simulation(plan_slice, genome_filename, with_fastslam=False):
 
 #Train.train(120, filename_genome='gen4_s400_i50.pickle')
 
-use_simulation(78, genome_filename='gen2_s400_i50.pickle', frame_time=.5, with_fastslam=False)
+use_simulation(12, genome_filename='gen2_s400_i50.pickle', frame_time=.2, with_fastslam=False)
 
 #r = test_simulation(slice(0,200), genome_filename='gen2_s400_i50.pickle')
 #

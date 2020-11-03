@@ -77,25 +77,22 @@ def resampling(particles, particles_size):
 
     pw = np.array(pw)
 
-    Neff = 1.0 / (pw @ pw.T)  # Effective particle number, 1 / Σ w²
+    wcum = np.cumsum(pw)
+    base = np.cumsum(pw * 0.0 + 1 / particles_size) - 1 / particles_size
+    resampleid = base + np.random.rand(base.shape[0]) / particles_size
 
-    if Neff < particles_size/1.5:  # resampling
-        wcum = np.cumsum(pw)
-        base = np.cumsum(pw * 0.0 + 1 / particles_size) - 1 / particles_size
-        resampleid = base + np.random.rand(base.shape[0]) / particles_size
+    inds = []
+    ind = 0
+    for ip in range(particles_size):
+        while ((ind < wcum.shape[0] - 1) and (resampleid[ip] > wcum[ind])):
+            ind += 1
+        inds.append(ind)
 
-        inds = []
-        ind = 0
-        for ip in range(particles_size):
-            while ((ind < wcum.shape[0] - 1) and (resampleid[ip] > wcum[ind])):
-                ind += 1
-            inds.append(ind)
-
-        tparticles = particles[:]
-        for i in range(len(inds)):
-            particles[i].pos_x = tparticles[inds[i]].pos_x
-            particles[i].pos_y = tparticles[inds[i]].pos_y
-            particles[i].weight = 1.0 / particles_size
+    tparticles = particles[:]
+    for i in range(len(inds)):
+        particles[i].pos_x = tparticles[inds[i]].pos_x
+        particles[i].pos_y = tparticles[inds[i]].pos_y
+        particles[i].weight = 1.0 / particles_size
 
     return particles
 

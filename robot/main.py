@@ -38,9 +38,6 @@ class General:
         # thread
         self.thread_is_alive = False # manual implementation of Thread.is_alive() as it's not available
 
-        # errors
-        self.sensor_motor_error = False
-
         # components
         self.motor1 = Motor(Port.B)
         self.motor2 = Motor(Port.C)
@@ -69,22 +66,18 @@ class General:
         And thus that the robot position and orientation are potentially very different now.
         '''
         client.publish('topic/robot', 'ERROR')
- 
+
     def rotate_sensor(self, angle):
         '''
-        Rotate the sensor of the given angle and take measures while rotating.  
+        Rotate the sensor of the given angle and take 5 measures while rotating.  
         Return the taken measures.
         '''
-        # start the rotation
-        self.sensor_motor.run_angle(60, angle, Stop.COAST, False)
-
         measures = []
-
-        while self.sensor_motor.speed() != 0:
+        
+        for i in range(5):
+            self.sensor_motor.run_angle(60, angle//5, Stop.COAST, True)
             wait(200)
-            if self.check_sensor_motor_bug():
-                return [] # to avoid an error in take_rotate_measure
-            
+
             measures.append((self.sensor_motor.angle(), self.ultra_sensor.distance()))
 
         return measures
@@ -105,44 +98,18 @@ class General:
         measures = []
 
         measures += self.rotate_sensor(60)
-        if self.sensor_motor_error:
-            # restart measure taking process
-            self.reset_sensor_angle()
-            self.sensor_motor_error = False
-            return self.take_rotate_measure()
         wait(500)
         
         measures += self.rotate_sensor(-120)
-        if self.sensor_motor_error:
-            # restart measure taking process
-            self.reset_sensor_angle()
-            self.sensor_motor_error = False
-            return self.take_rotate_measure()
         wait(500)
         
         measures += self.rotate_sensor(60)
-        if self.sensor_motor_error:
-            # restart measure taking process
-            self.reset_sensor_angle()
-            self.sensor_motor_error = False
-            return self.take_rotate_measure()
         wait(500)
 
         # reset the sensor angle
         self.reset_sensor_angle()
         
         return measures
-        
-    def check_sensor_motor_bug(self):
-        '''
-        Check if the motor that rotates the sensor is going crazy.  
-        If so, stop the motor.
-        '''
-        if abs(self.sensor_motor.speed()) > 400:
-            self.sensor_motor_error = True
-            self.sensor_motor.stop()
-            print('Motor sensor bug.')
-            return True
 
     def check_large_motor_bug(self):
         '''

@@ -13,7 +13,7 @@ from .landmark import Landmark
 
 class Particle(object):
     """Represents the robot and particles"""
-    TOL = 1E-30
+    TOL = 1E-4
 
     def __init__(self, x, y, orien, scope=50,  is_robot=False):
         """pos_x: from left to right
